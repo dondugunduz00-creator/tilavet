@@ -241,6 +241,11 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .okn-wrap{margin-top:2px}
 #pageEl[data-view="verse"] .basmala,#pageEl[data-view="check"] .basmala{font-size:calc(var(--mushaf-size,var(--ar-size))*1.1);line-height:2}
 .okn{font-family:var(--f-read);font-size:var(--ok-size);line-height:1.6;color:var(--ink);font-weight:400;letter-spacing:.005em}
+.okn .w{white-space:nowrap}
+.okn .rb{position:relative;display:inline}
+.okn .rl{position:absolute;left:50%;top:100%;transform:translate(-50%,.12em);font-size:.47em;line-height:1;letter-spacing:.01em;color:var(--muted);font-weight:500;white-space:nowrap;pointer-events:none}
+.okn .gn{text-decoration:underline wavy;text-decoration-thickness:1px;text-underline-offset:.22em;text-decoration-color:currentColor}
+.okn-wrap .okn,.dock .okn{line-height:2.35}
 .okn .wq{color:var(--gold);font-weight:600;padding:0 .1em}
 .okn span[data-r]{cursor:help}
 .keys{display:grid;gap:6px;padding:4px 8px 6px}
@@ -683,14 +688,23 @@ function ayahAr(i){
 const TR=makeTranslit(), okCache=new Map();
 function okTj(i){ if(!okCache.has(i)) okCache.set(i,TR(A[i][5],A[i][0],A[i][1])); return okCache.get(i) }
 function okText(i){ return st.okType==='klasik'?A[i][6]:okTj(i).map(x=>x[0]).join('').replace(/ ·/g,'') }
+const OKLAB={6:'muttasıl',7:'lâzım',8:'kalkale',9:'ğunne',10:'ihfâ',11:'ihfâ',12:'idğâm',13:'idğâm',14:'idğâm',15:'iklâb',16:'idğâm',17:'idğâm'};
 function okAyah(i){
   if(st.okType==='klasik') return okHTML(A[i][6]);
+  const edu=st.okType==='egitim';
   let h='', open=-2;
   const close=()=>{ if(open>=0) h+='</span>'; open=-2 };
-  for(const [t,c,w] of okTj(i)){
+  for(let [t,c,w] of okTj(i)){
     if(w<0){ close(); h+=t===' ·'?' <span class="wq" title="Durulabilecek yer (vakıf işareti)">·</span>':esc(t); continue }
     if(w!==open){ close(); h+='<span class="w" data-w="'+w+'">'; open=w }
-    const k=clsOf(c); h+=k?'<span class="'+k[0]+'" data-r="'+k[1]+'">'+esc(t)+'</span>':esc(t);
+    const p=c&31;
+    // uzatma miktarını harfle göster: 2 hareke â, 4–5 hareke ââ, 6 hareke âââ
+    if(p>=5&&p<=7&&/[âîûÂÎÛ]$/.test(t)){ const v=t.slice(-1).toLocaleLowerCase('tr'); t=t+v.repeat(p===7?2:1) }
+    const k=clsOf(c); if(!k){ h+=esc(t); continue }
+    const lab=edu&&OKLAB[p];
+    const g=(!lab&&[9,10,11,12,14,15].includes(p))?' gn':'';
+    h+= lab ? '<span class="rb"><span class="'+k[0]+g+'" data-r="'+k[1]+'">'+esc(t)+'</span><span class="rl">'+lab+'</span></span>'
+            : '<span class="'+k[0]+g+'" data-r="'+k[1]+'">'+esc(t)+'</span>';
   }
   close(); return h;
 }
@@ -702,9 +716,9 @@ function meal(i){const m=st.meal; return m==='none'?'':A[i][m==='elm'?8:7]}
 function mealName(){return st.meal==='elm'?'Elmalılı (sadeleştirilmiş)':'Diyanet Vakfı'}
 
 /* ---------- state ---------- */
-const DEF={page:1,mode:'verse',imla:'tr',okType:'tecvid',ar:34,ok:18,meal:'dv',okOn:true,tc:true,tk:true,tq:false,theme:'auto',font:'sch',fontv:6,reciter:'Alafasy_128kbps',rep:1,intro:true};
+const DEF={page:1,mode:'verse',imla:'tr',okType:'egitim',ar:34,ok:18,meal:'dv',okOn:true,tc:true,tk:true,tq:false,theme:'auto',font:'sch',fontv:7,reciter:'Alafasy_128kbps',rep:1,intro:true};
 const st=Object.assign({},DEF,store.get('st',{}));
-if(st.fontv!==6){ ['font','fontv','ar','ok','imla','okType','tc','tk','tq'].forEach(k=>st[k]=DEF[k]) }
+if(st.fontv!==7){ ['font','fontv','ar','ok','imla','okType','tc','tk','tq'].forEach(k=>st[k]=DEF[k]) }
 let read=new Set(store.get('read',[])), marks=store.get('marks',[]), judged=store.get('judged',{}), revealed=new Set();
 let sel=-1, focusRule=null, tab='sure';
 const save=()=>store.set('st',st);
@@ -886,7 +900,7 @@ function verseHTML(i){
   if(chk && !shown){
     h+='<div class="cover"><button data-reveal="'+i+'">Okunuşu göster</button><span>Önce Arapçasını okuyun, sonra açıp karşılaştırın. Kısayol: Boşluk tuşu</span></div>';
   } else {
-    if(st.okOn||chk) h+='<div class="okn-wrap"><div class="okn-label">Okunuş</div><div class="okn">'+okAyah(i)+'</div></div>';
+    if(st.okOn||chk) h+='<div class="okn-wrap"><div class="okn-label">Tecvidli okunuş</div><div class="okn">'+okAyah(i)+'</div></div>';
     const m=meal(i); if(m) h+='<div class="meal">'+mealHTML(m)+'</div>';
     if(chk) h+='<div class="judge"><button class="ok" data-judge="'+i+'" data-v="1" aria-pressed="'+(j===1)+'">✓ Doğru okudum</button><button class="again" data-judge="'+i+'" data-v="2" aria-pressed="'+(j===2)+'">↻ Tekrar edeceğim</button></div>';
   }
@@ -936,7 +950,7 @@ function renderTab(){
     b.innerHTML='<input class="search" id="q" placeholder="Okunuş, meal veya 2:255" aria-label="Ara"><div class="hint">Türkçe okunuşta (ör. “rabbenâ”), mealde (ör. “sabır”) arayabilir ya da “2:255” yazarak ayete gidebilirsiniz.</div><div id="qRes"></div>';
     const q=$('#q'); q.addEventListener('input',()=>doSearch(q.value)); q.focus({preventScroll:true});
   } else if(tab==='tecvid'){
-    let h='<div class="hint">Bir kurala dokunun; sayfada hem Arapçada hem okunuşta yalnızca o kural renkli kalır. Tekrar dokununca tüm renkler geri gelir.</div><div class="lg-h">Okunuştaki işaretler</div><div class="keys"><div><b>â î û</b><span>Uzun okunur (med). Renk, kaç hareke uzatılacağını gösterir.</span></div><div><b>\'</b><span>Ayın veya hemze: sesi kesip boğazdan okuyun.</span></div><div><b>rr, nn, mm</b><span>Çift harf (şedde): harfe bastırarak okuyun.</span></div><div><b>·</b><span>Vakıf işareti: durup nefes alınabilecek yer.</span></div><div><b>ayet sonu</b><span>Ayet sonları durak hâlinde yazılır (son hareke okunmaz).</span></div></div><div class="lg">';
+    let h='<div class="hint">Bir kurala dokunun; sayfada hem Arapçada hem okunuşta yalnızca o kural renkli kalır. Tekrar dokununca tüm renkler geri gelir.</div><div class="lg-h">Okunuştaki işaretler</div><div class="keys"><div><b>â</b><span>Uzatılır: 2 hareke (bir elif).</span></div><div><b>ââ</b><span>4–5 hareke uzatılır (med-i muttasıl, munfasıl, ârız).</span></div><div><b>âââ</b><span>6 hareke uzatılır (med-i lâzım).</span></div><div><b>n̰ dalgalı</b><span>Dalgalı çizgili harfler genizden (ğunneli) okunur: ihfâ, idğâm, iklâb, ğunne.</span></div><div><b>küçük yazı</b><span>Harfin altındaki küçük yazı o yerdeki tecvid kuralının adıdır.</span></div><div><b>\'</b><span>Ayın veya hemze: sesi kesip boğazdan okuyun.</span></div><div><b>rr, nn, mm</b><span>Çift harf (şedde): harfe bastırarak okuyun.</span></div><div><b>·</b><span>Vakıf işareti: durup nefes alınabilecek yer.</span></div><div><b>ayet sonu</b><span>Ayet sonları durak hâlinde yazılır (son hareke okunmaz).</span></div></div><div class="lg">';
     GROUPS.forEach(([g,ids])=>{h+='<div class="lg-h">'+g+'</div>';ids.forEach(id=>{const r=RULES[id];
       h+='<button class="lg-i" data-rule="'+id+'" aria-pressed="'+(focusRule===id)+'"><span class="sw" style="background:var(--t'+id+')"></span><span><b>'+r[0]+'</b><small>'+r[1]+'</small></span></button>'})});
     h+='<div class="lg-h">Harf kalınlığı</div>';
@@ -993,7 +1007,7 @@ function renderPop(){
      '<div id="userFontRow" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label class="small-btn" for="sFontFile" style="cursor:pointer">Yazı tipi dosyası seç</label><span class="hint" style="padding:0">.ttf, .otf, .woff</span></div><input type="file" class="vh" id="sFontFile" accept=".ttf,.otf,.woff,.woff2">'+
      '<input class="search" id="sLocalFont" placeholder="Kurulu yazı tipinin adı" value="'+esc(st.localFont||'')+'" style="margin:4px 0 0"></div>'+
    '<div class="fld"><label for="sImla">Arapça yazım</label><select id="sImla"><option value="tr">Türk mushafı usulü</option><option value="md">Medine mushafı (Osmanî rasm)</option></select></div>'+
-   '<div class="fld"><label for="sOkType">Türkçe okunuş</label><select id="sOkType"><option value="tecvid">Tecvidli ve renkli</option><option value="klasik">Sade (vasıl hâli parantezde)</option></select></div>'+
+   '<div class="fld"><label for="sOkType">Türkçe okunuş</label><select id="sOkType"><option value="egitim">Tecvidli, kural adlarıyla (öğrenme)</option><option value="tecvid">Tecvidli, yalnız renk ve uzatma</option><option value="klasik">Sade (vasıl hâli parantezde)</option></select></div>'+
    '<div class="fld"><label for="sOk">Okunuş ve meal yazı boyutu</label><input type="range" id="sOk" min="14" max="28" value="'+st.ok+'"></div>'+
    '<div class="fld"><label for="sMeal">Meal</label><select id="sMeal"><option value="dv">Diyanet Vakfı</option><option value="elm">Elmalılı Hamdi Yazır (sadeleştirilmiş)</option><option value="none">Meal gösterme</option></select></div>'+
    '<div class="fld"><span>Görünüm</span>'+
