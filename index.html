@@ -225,6 +225,13 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .tbtn:hover{border-color:var(--line);color:var(--ink)}
 .tbtn svg{width:16px;height:16px}
 .tbtn.ok{color:var(--ok)} .tbtn.again{color:var(--warn)}
+.ar.laid{text-align:right;text-align-last:auto;word-spacing:0;line-height:normal!important}
+.ln{display:flex;align-items:center;white-space:nowrap;justify-content:flex-start;overflow:visible}
+.ln .tok{display:inline-block;white-space:nowrap;line-height:2.05;flex:none}
+.ln .ay{border-radius:0;box-shadow:none;padding:0;margin:0}
+.ln .ay.sel,.ln .ay.hl-ayah,.ln .ay.playing{box-shadow:calc(-1*var(--hg)) 0 0 0 var(--hl-ayah),var(--hg) 0 0 0 var(--hl-ayah)}
+.ln-m{visibility:hidden}
+.ln .num{margin:0;margin-inline-start:.35em;margin-inline-end:.05em}
 .v .ar{text-align:right}
 .ar .nw{white-space:nowrap}
 .v .ar.vt{font-size:var(--mushaf-size,var(--ar-size));text-align:justify;text-align-last:right;line-height:2.15!important;word-spacing:.08em}
@@ -751,14 +758,81 @@ function renderFontHint(){ const h=document.getElementById('fontHint'); if(h) h.
 /* mushaf düzeni: tipik bir mushaf satırı (yaklaşık 9 kelime) bir satıra sığacak yazı boyutu */
 const FIT_LINE='وَلَوْ اَنَّهُمْ صَبَرُوا حَتّٰى تَخْرُجَ اِلَيْهِمْ لَكَانَ خَيْرًا لَهُمْ وَاللّٰهُ';
 let fitProbe=null;
+/* ---------- mushaf satır dizgisi ----------
+   Tarayıcının "iki yana yasla" özelliği boşlukları büyüttüğü için kelimeler arası açılıyordu.
+   Burada satırları kendimiz kırıyoruz: her satırda kelime aralığı sabit, satırı tam doldurmak için
+   o satırın yazısı çok az (en çok %12) büyütülüp küçültülüyor. Ayet numarası hiçbir zaman satırdan taşmaz. */
+const LN={gap:.30,fmin:.95,fmax:1.06,gmin:.75,gmax:1.9};
+function lnParse(el){
+  const toks=[]; let cur=null;
+  const add=(node,ai)=>{
+    if(node.nodeType===3){ if(!node.textContent.trim()) return; node={outerHTML:esc(node.textContent)} }
+    else if(node.classList&&node.classList.contains('w')){ cur={ai,html:node.outerHTML}; toks.push(cur); return }
+    else if(node.classList&&(node.classList.contains('nw')||node.classList.contains('ay'))){ const a=node.classList.contains('ay')?node.dataset.i:ai; node.childNodes.forEach(n=>add(n,a)); return }
+    if(!cur){ cur={ai,html:''}; toks.push(cur) }
+    if(cur.ai!==ai&&ai!=null){ cur={ai,html:''}; toks.push(cur) }
+    cur.html+=node.outerHTML;
+  };
+  el.childNodes.forEach(n=>add(n,null));
+  return toks;
+}
+let lnMeasure=null;
+function lnLayout(el){
+  if(!el._tok) el._tok=lnParse(el);
+  const toks=el._tok; if(!toks.length) return;
+  const W=el.clientWidth-2; if(W<50) return;
+  const cs=getComputedStyle(el), s=parseFloat(cs.fontSize);
+  el.innerHTML='<div class="ln ln-m" style="font-size:'+s+'px;column-gap:0">'+toks.map(t=>'<span class="tok">'+t.html+'</span>').join('')+'</div>';
+  const wd=[...el.firstChild.children].map(c=>c.getBoundingClientRect().width);
+  const g=LN.gap*s;
+  // satır kırma: her adımda "taşmadan bırak" ile "biraz sıkıştırıp al" arasından daha az bozanı seç
+  const lines=[]; let a=0;
+  while(a<toks.length){
+    let sum=wd[a], b=a+1;
+    while(b<toks.length && sum+g+wd[b]<=W){ sum+=g+wd[b]; b++ }
+    if(b<toks.length){
+      const n1=b-a, w1=sum-(n1-1)*g, gUp=n1>1?(W-w1)/(n1-1)/g:9;
+      const w2=w1+wd[b], gDn=(W-w2)/n1/g;
+      const cost=x=>x>=1?(x-1):(1-x)*2.2;
+      if(gDn>=LN.gmin*.9 && cost(gDn)<cost(gUp)) b++;
+    }
+    lines.push([a,b]); a=b;
+  }
+  let h='';
+  lines.forEach(([a,b],li)=>{
+    const n=b-a; let w=0; for(let k=a;k<b;k++) w+=wd[k];
+    const last=li===lines.length-1;
+    let f=1, gap=g, fill=true;
+    if(n>1){ gap=(W-w)/(n-1) }
+    if(last && gap>g*LN.gmax){ gap=g; fill=false }
+    else if(n<2 || gap<g*LN.gmin || gap>g*LN.gmax){
+      const gt=n>1?Math.max(g*LN.gmin,Math.min(g*LN.gmax,gap)):0;
+      f=Math.max(LN.fmin,Math.min(LN.fmax,(W-(n-1)*gt)/w));
+      gap=n>1?(W-f*w)/(n-1):0; if(gap<g*.5) gap=g*.5;
+    }
+    const fs=(s*f).toFixed(2);
+    h+='<div class="ln'+(fill?'':' ln-last')+'" style="font-size:'+fs+'px;column-gap:'+(fill?gap:g).toFixed(2)+'px;--hg:'+((fill?gap:g)/2).toFixed(2)+'px;height:'+(s*2.05).toFixed(1)+'px">';
+    for(let k=a;k<b;k++){ const t=toks[k];
+      h+= t.ai!=null ? '<span class="ay tok'+(+t.ai===sel?' sel':'')+'" data-i="'+t.ai+'">'+t.html+'</span>' : '<span class="tok">'+t.html+'</span>' }
+    h+='</div>';
+  });
+  el.innerHTML=h; el.classList.add('laid');
+  // güvenlik: yine de taşan satır olursa o satırı küçült
+  el.querySelectorAll('.ln:not(.ln-last)').forEach(l=>{ let sw=0; l.querySelectorAll('.tok').forEach(k=>sw+=k.getBoundingClientRect().width); const gp=parseFloat(l.style.columnGap)||0; const n=l.children.length; const need=sw+(n-1)*gp;
+    if(need>W+1){ const f=(W-(n-1)*gp)/sw; l.style.fontSize=(parseFloat(l.style.fontSize)*f).toFixed(2)+'px' } });
+}
+function layoutAll(){ document.querySelectorAll('#pageEl .flow, #pageEl .ar.vt').forEach(el=>{ try{ lnLayout(el) }catch(e){} }); try{ applyHL(); if(typeof P!=='undefined'&&P.on) markPlaying() }catch(e){} }
+function selAy(i){ document.querySelectorAll('.ay.sel').forEach(x=>x.classList.remove('sel')); document.querySelectorAll('.ay[data-i="'+i+'"]').forEach(x=>x.classList.add('sel')) }
+
 function fitMushaf(){
   const host=document.getElementById('pageEl'); if(!host) return;
   const w=host.clientWidth; if(!w) return;
   if(!fitProbe){ fitProbe=document.createElement('span'); fitProbe.className='ar'; fitProbe.style.cssText='position:absolute;visibility:hidden;white-space:nowrap;font-size:100px;line-height:1;left:-9999px;top:0;word-spacing:.08em'; fitProbe.textContent=FIT_LINE; document.body.appendChild(fitProbe) }
   const pw=fitProbe.getBoundingClientRect().width||1;
-  let size=100*w*0.97/pw*1.45*(st.ar/34);
+  let size=100*w*0.97/pw*1.32*(st.ar/34);
   size=Math.max(16,Math.min(size,64));
   document.documentElement.style.setProperty('--mushaf-size',size.toFixed(1)+'px');
+  requestAnimationFrame(layoutAll);
 }
 addEventListener('resize',()=>{ clearTimeout(fitMushaf.t); fitMushaf.t=setTimeout(fitMushaf,120) });
 try{ document.fonts.addEventListener('loadingdone',()=>fitMushaf()) }catch(e){}
@@ -1032,12 +1106,13 @@ function enterAyah(i,first){
   P.i=i; playIdx=i; P.word=-1; P.lastW=null;
   if(A[i][2]!==st.page) goPage(A[i][2],true);
   sel=i;
-  if(st.mode==='mushaf'){ document.querySelectorAll('.ay.sel').forEach(e=>e.classList.remove('sel')); const el=document.querySelector('.ay[data-i="'+i+'"]'); if(el) el.classList.add('sel'); renderDock() }
+  if(st.mode==='mushaf'){ selAy(i); renderDock() }
   HL={i,w:null,m:null}; applyHL(); markPlaying(); updatePlayer(); setMediaSession();
 }
 function markPlaying(){
   document.querySelectorAll('.playing').forEach(e=>e.classList.remove('playing'));
   if(!P.on||P.i<0) return;
+  document.querySelectorAll('.ay[data-i="'+P.i+'"]').forEach(x=>x.classList.add('playing'));
   const el=document.querySelector('.ay[data-i="'+P.i+'"]')||document.getElementById('v'+P.i);
   if(el){ el.classList.add('playing'); requestAnimationFrame(()=>{ const w=el.querySelector('.w')||el; keepVisible(w) }) }
 }
@@ -1183,11 +1258,11 @@ document.addEventListener('click',e=>{
     const i=+host.dataset.i, isM=wEl.classList.contains('mw'), k=+(isM?wEl.dataset.m:wEl.dataset.w);
     const same=HL&&HL.i===i&&(isM?HL.m===k:HL.w===k);
     HL=same?{i,w:null,m:null}:{i,w:isM?null:k,m:isM?k:null};
-    if(host.classList.contains('ay')&&sel!==i){ sel=i; document.querySelectorAll('.ay.sel').forEach(x=>x.classList.remove('sel')); host.classList.add('sel'); renderDock() }
+    if(host.classList.contains('ay')&&sel!==i){ sel=i; document.querySelectorAll('.ay.sel').forEach(x=>x.classList.remove('sel')); selAy(i); renderDock() }
     applyHL(); return
   }
   if((b=t.closest('.v[data-i]'))&&!t.closest('button')){ const i=+b.dataset.i; if(!HL||HL.i!==i){HL={i,w:null,m:null};applyHL()} }
-  if((b=t.closest('.ay[data-i]'))){sel=+b.dataset.i;HL={i:sel,w:null,m:null};document.querySelectorAll('.ay.sel').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');renderDock();applyHL();return}
+  if((b=t.closest('.ay[data-i]'))){sel=+b.dataset.i;HL={i:sel,w:null,m:null};selAy(sel);renderDock();applyHL();return}
   if((b=t.closest('.seg [data-mode]'))){st.mode=b.dataset.mode;save();revealed.clear();renderPage();return}
   if((b=t.closest('[data-go]'))){goPage(+b.dataset.go);return}
   if((b=t.closest('[data-page]'))){goPage(+b.dataset.page);closeSide();return}
@@ -1195,8 +1270,8 @@ document.addEventListener('click',e=>{
   if((b=t.closest('[data-ayah]'))){goAyah(+b.dataset.ayah);return}
   if((b=t.closest('[data-tab]'))){tab=b.dataset.tab;renderTab();return}
   if((b=t.closest('[data-rule]'))){const r=b.dataset.rule; const v=(r==='tk'||r==='tq')?r:+r; focusRule=focusRule===v?null:v; if(focusRule==='tk'&&!st.tk){st.tk=true;applyPrefs()} if(focusRule==='tq'&&!st.tq){st.tq=true;save();applyPrefs()} renderTab(); if(focusRule!=null) $('#main').dataset.fr=focusRule; else delete $('#main').dataset.fr; return}
-  if((b=t.closest('[data-reveal]'))){const i=+b.dataset.reveal;revealed.add(i);const el=document.getElementById('v'+i);el.outerHTML=verseHTML(i);return}
-  if((b=t.closest('[data-judge]'))){const i=+b.dataset.judge,v=+b.dataset.v; if(judged[i]===v) delete judged[i]; else judged[i]=v; store.set('judged',judged); document.getElementById('v'+i).outerHTML=verseHTML(i); updateSum(); if(v===1&&judged[i]===1) revealNext(i); return}
+  if((b=t.closest('[data-reveal]'))){const i=+b.dataset.reveal;revealed.add(i);const el=document.getElementById('v'+i);el.outerHTML=verseHTML(i);layoutAll();return}
+  if((b=t.closest('[data-judge]'))){const i=+b.dataset.judge,v=+b.dataset.v; if(judged[i]===v) delete judged[i]; else judged[i]=v; store.set('judged',judged); document.getElementById('v'+i).outerHTML=verseHTML(i); layoutAll(); updateSum(); if(v===1&&judged[i]===1) revealNext(i); return}
   if((b=t.closest('[data-play]'))){const i=+b.dataset.play; if(P.on&&P.i===i){togglePlay();return} playFrom(i);return}
   if((b=t.closest('[data-step]'))){step(+b.dataset.step);return}
   if(t.closest('#popClose')){ $('#pop').hidden=true; return }
@@ -1211,7 +1286,7 @@ function updateSum(){const list=pages[st.page],s=$('.check-sum'); if(!s) return;
 function revealNext(i){const el=document.getElementById('v'+(i+1)); if(el) el.scrollIntoView({block:'center',behavior:'smooth'})}
 function step(d){ if(sel<0){sel=pages[st.page][0]} else sel=Math.max(0,Math.min(A.length-1,sel+d));
   if(A[sel][2]!==st.page){goPage(A[sel][2],true)} else {document.querySelectorAll('.ay.sel').forEach(x=>x.classList.remove('sel'))}
-  const el=document.querySelector('.ay[data-i="'+sel+'"]'); if(el){el.classList.add('sel');el.scrollIntoView({block:'nearest',behavior:'smooth'})} renderDock()}
+  selAy(sel); const el=document.querySelector('.ay[data-i="'+sel+'"]'); if(el){el.scrollIntoView({block:'nearest',behavior:'smooth'})} renderDock()}
 
 $('#prevBtn').onclick=()=>goPage(st.page-1);
 $('#nextBtn').onclick=()=>goPage(st.page+1);
@@ -1230,7 +1305,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='ArrowLeft'){goPage(st.page+1);e.preventDefault()}
   else if(e.key==='ArrowRight'){goPage(st.page-1);e.preventDefault()}
   else if(st.mode==='mushaf'&&(e.key==='ArrowDown'||e.key==='ArrowUp')){step(e.key==='ArrowDown'?1:-1);e.preventDefault()}
-  else if(st.mode==='check'&&e.key===' '){const i=pages[st.page].find(i=>!revealed.has(i)); if(i!=null){revealed.add(i);const el=document.getElementById('v'+i);el.outerHTML=verseHTML(i);document.getElementById('v'+i).scrollIntoView({block:'center',behavior:'smooth'})} e.preventDefault()}
+  else if(st.mode==='check'&&e.key===' '){const i=pages[st.page].find(i=>!revealed.has(i)); if(i!=null){revealed.add(i);const el=document.getElementById('v'+i);el.outerHTML=verseHTML(i);layoutAll();document.getElementById('v'+i).scrollIntoView({block:'center',behavior:'smooth'})} e.preventDefault()}
   else if(e.key==='Escape'){$('#tip').hidden=true;$('#pop').hidden=true;closeSide()}
 });
 window.addEventListener('hashchange',()=>{const m=location.hash.match(/^#sayfa-(\d+)$/); if(m&&+m[1]!==st.page) goPage(+m[1])});
