@@ -53,6 +53,7 @@
 
 *{box-sizing:border-box}
 [hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 html,body{min-height:100%}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:15px;line-height:1.5}
 button,select,input{font:inherit;color:inherit}
@@ -249,7 +250,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .okn .vs{color:var(--faint);font-size:.82em}
 .okn-wrap{border-inline-start:3px solid var(--accent);padding:4px 0 4px 12px;background:linear-gradient(90deg,var(--accent-soft),transparent 70%);border-radius:0 6px 6px 0}
 .okn-label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:500;margin-bottom:2px}
-.meal{font-family:var(--f-meal);font-size:15.5px;line-height:1.65;color:var(--muted);max-width:72ch}
+.meal{font-family:var(--f-meal);font-size:calc(var(--ok-size)*.86);line-height:1.65;color:var(--muted);max-width:72ch}
 
 /* check mode */
 .cover{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:1.5px dashed var(--line);border-radius:10px;padding:12px 14px;background:repeating-linear-gradient(135deg,transparent 0 10px,var(--accent-soft) 10px 11px)}
@@ -284,7 +285,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .dock-top .ref{font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
 .dock-top .grow{flex:1}
 .dock .okn{font-size:calc(var(--ok-size) + 1px)}
-.dock .meal{font-size:14.5px}
+.dock .meal{font-size:calc(var(--ok-size)*.8)}
 .dock-body{max-height:var(--dock-max,34vh);overflow:auto;display:grid;gap:6px}
 
 /* audio bar */
@@ -993,7 +994,7 @@ function renderPop(){
      '<input class="search" id="sLocalFont" placeholder="Kurulu yazı tipinin adı" value="'+esc(st.localFont||'')+'" style="margin:4px 0 0"></div>'+
    '<div class="fld"><label for="sImla">Arapça yazım</label><select id="sImla"><option value="tr">Türk mushafı usulü</option><option value="md">Medine mushafı (Osmanî rasm)</option></select></div>'+
    '<div class="fld"><label for="sOkType">Türkçe okunuş</label><select id="sOkType"><option value="tecvid">Tecvidli ve renkli</option><option value="klasik">Sade (vasıl hâli parantezde)</option></select></div>'+
-   '<div class="fld"><label for="sOk">Okunuş yazı boyutu</label><input type="range" id="sOk" min="14" max="28" value="'+st.ok+'"></div>'+
+   '<div class="fld"><label for="sOk">Okunuş ve meal yazı boyutu</label><input type="range" id="sOk" min="14" max="28" value="'+st.ok+'"></div>'+
    '<div class="fld"><label for="sMeal">Meal</label><select id="sMeal"><option value="dv">Diyanet Vakfı</option><option value="elm">Elmalılı Hamdi Yazır (sadeleştirilmiş)</option><option value="none">Meal gösterme</option></select></div>'+
    '<div class="fld"><span>Görünüm</span>'+
      '<label class="sw-row">Okunuşu ayetlerin altında göster<input type="checkbox" id="sOkOn"'+(st.okOn?' checked':'')+'></label>'+
