@@ -1,7 +1,7 @@
 /* Tilâvet çevrimdışı önbellek */
-const V='tilavet-v4';
+const V='tilavet-v5';
 const SHELL=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./apple-touch-icon.png'];
-self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()))});
+self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(SHELL.map(u=>new Request(u,{cache:'reload'})))).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k.startsWith('tilavet-v')&&k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',e=>{
   const r=e.request; if(r.method!=='GET') return;
@@ -9,7 +9,7 @@ self.addEventListener('fetch',e=>{
   if(u.origin===location.origin){
     // sayfa: önce ağ (güncelleme gelsin), yoksa önbellek
     if(r.mode==='navigate'||u.pathname.endsWith('/')||u.pathname.endsWith('index.html')){
-      e.respondWith(fetch(r).then(res=>{const c=res.clone(); caches.open(V).then(x=>x.put('./index.html',c)); return res}).catch(()=>caches.match('./index.html')));
+      e.respondWith(fetch(r,{cache:'no-store'}).then(res=>{const c=res.clone(); caches.open(V).then(x=>x.put('./index.html',c)); return res}).catch(()=>caches.match('./index.html')));
       return;
     }
     e.respondWith(caches.match(r).then(m=>m||fetch(r)));
