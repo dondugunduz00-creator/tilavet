@@ -218,6 +218,12 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .tbtn svg{width:16px;height:16px}
 .tbtn.ok{color:var(--ok)} .tbtn.again{color:var(--warn)}
 .v .ar{text-align:right}
+.ar .nw{white-space:nowrap}
+.v .ar.vt{font-size:var(--mushaf-size,var(--ar-size));text-align:justify;text-align-last:right;line-height:2.15!important;word-spacing:.08em}
+.v{gap:12px;padding:18px 0 20px}
+.v .ar.vt .num{font-size:.85em}
+.okn-wrap{margin-top:2px}
+#pageEl[data-mode="verse"] .basmala,#pageEl[data-mode="check"] .basmala{font-size:calc(var(--mushaf-size,var(--ar-size))*1.1);line-height:2}
 .okn{font-family:var(--f-read);font-size:var(--ok-size);line-height:1.6;color:var(--ink);font-weight:400;letter-spacing:.005em}
 .okn .wq{color:var(--gold);font-weight:600;padding:0 .1em}
 .okn span[data-r]{cursor:help}
@@ -251,6 +257,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 
 .intro{max-width:900px;margin:0 auto 14px;display:flex;gap:12px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13.5px;color:var(--muted)}
 .intro b{color:var(--ink);font-weight:500}
+.intro-l{display:grid;gap:4px;line-height:1.45}
+.intro-l>b{font-weight:600}
 .intro button{margin-inline-start:auto}
 
 /* bottom reading sheet (mushaf mode) */
@@ -483,7 +491,7 @@ return function(flat,surah,ayah){
       const prev=out[out.length-1]; const afterCons=prev&&!prev.sp&&!prev.v;
       cons=(wstart&&!joinNext)||firstPron?'':(u.sk||afterCons?"'":'');
       if(b==='ع'&&!wstart&&!u.sk&&prev&&prev.v) cons='';
-      const pf=U[words[wi][0]]; const wpos=words[wi].indexOf(i); if(isHam&&!u.sk&&(wpos===1||(wpos===2&&U[words[wi][1]].b==='ـ'))&&prev&&prev.v&&('وفبلكأإء'.includes(pf.b)||('يه'.includes(pf.b)&&(pf.ms.includes(DAGGER)||(wpos===2&&U[words[wi][1]].ms.includes(DAGGER)))))){ push(' ',0,{sp:true}); cons='' }
+      const pf=U[words[wi][0]]; const wpos=words[wi].indexOf(i); if(isHam&&!u.sk&&(wpos===1||(wpos===2&&U[words[wi][1]].b==='ـ'))&&prev&&prev.v&&('وفبلك'.includes(pf.b)||('يه'.includes(pf.b)&&(pf.ms.includes(DAGGER)||(wpos===2&&U[words[wi][1]].ms.includes(DAGGER)))))){ push(' ',0,{sp:true}); cons='' }
     } else if(b==='ا'){ cons='' }
     else if(b==='ٮ'){ cons='' }
     else cons=CONS[b]||'';
@@ -671,6 +679,7 @@ function okAyah(i){
   close(); return h;
 }
 function okHTML(t){return esc(t).replace(/\(([^)]+)\)/g,'<span class="vs" title="Durmadan devam ederseniz böyle okunur">($1)</span>')}
+function arWithNum(i){ const h=ayahAr(i), k=h.lastIndexOf('<span class="w"'); const n=numHTML(i); return k<0? h+n : h.slice(0,k)+'<span class="nw">'+h.slice(k)+'\u00A0'+n+'</span>' }
 function numHTML(i){return '<span class="num" aria-label="Ayet '+A[i][1]+'"><i>'+arDigits(A[i][1])+'</i></span>'+(A[i][4]?'<span class="sajda" title="Secde ayeti">secde</span>':'')}
 function mealHTML(m){let n=-1; return m.split(/(\s+)/).map(p=>/^\s*$/.test(p)?p:'<span class="mw" data-m="'+(++n)+'">'+esc(p)+'</span>').join('')}
 function meal(i){const m=st.meal; return m==='none'?'':A[i][m==='elm'?8:7]}
@@ -765,7 +774,7 @@ function renderPage(){
     const flush=()=>{if(buf){h+='<div class="ar flow">'+buf+'</div>';buf=''}};
     list.forEach(i=>{const a=A[i];
       if(a[1]===1){flush();h+=surahHead(a[0])}
-      buf+='<span class="ay'+(i===sel?' sel':'')+'" data-i="'+i+'">'+ayahAr(i)+'</span>'+numHTML(i)+' ';
+      buf+='<span class="ay'+(i===sel?' sel':'')+'" data-i="'+i+'">'+arWithNum(i)+'</span> ';
     });
     flush();
   } else {
@@ -790,7 +799,7 @@ function verseHTML(i){
   let h='<section class="v" data-i="'+i+'" id="v'+i+'"><div class="v-top"><span class="ref">'+a[0]+':'+a[1]+'</span><span>'+esc(S[a[0]-1][0])+'</span>'+
     (j===1?'<span class="badge ok">doğru okundu</span>':j===2?'<span class="badge again">tekrar edilecek</span>':'')+
     '<span class="acts"><button class="tbtn" data-play="'+i+'" title="Bu ayeti dinle"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Dinle</button></span></div>'+
-    '<div class="ar">'+ayahAr(i)+numHTML(i)+'</div>';
+    '<div class="ar vt">'+arWithNum(i)+'</div>';
   if(chk && !shown){
     h+='<div class="cover"><button data-reveal="'+i+'">Okunuşu göster</button><span>Önce Arapçasını okuyun, sonra açıp karşılaştırın. Kısayol: Boşluk tuşu</span></div>';
   } else {
@@ -818,7 +827,7 @@ function renderIntro(){
   const el=$('#intro');
   if(!st.intro){el.hidden=true;return}
   el.hidden=false;
-  el.innerHTML='<div><b>Nasıl kullanılır?</b> <b>Ayet ayet</b> modunda her ayetin altında Türkçe okunuşu ve meali vardır. <b>Kontrol</b> modunda okunuş gizlenir: Arapçasını okuyun, sonra açıp kendinizi kontrol edin ve işaretleyin. <b>Mushaf</b> modunda sayfayı akış halinde okursunuz; bir ayete dokununca okunuşu altta çıkar. Bir kelimeye dokunduğunuzda ayet ve o kelime Arapçada, okunuşta ve mealde ayrı renklerle işaretlenir. İşaretli kelimedeki renkli bir harfe tekrar dokunursanız tecvid kuralını görürsünüz.</div><button class="small-btn" id="introClose">Anladım</button>';
+  el.innerHTML='<div class="intro-l"><b>Hoş geldiniz.</b><span><b>Ayet ayet:</b> Arapça, okunuş ve meal alt alta.</span><span><b>Kontrol:</b> Okunuş gizli; önce okuyun, sonra açıp kontrol edin.</span><span><b>Mushaf:</b> Sayfa düzeni; ayete dokununca okunuşu altta açılır.</span><span>Kelimeye dokunun: Arapçada, okunuşta ve mealde işaretlenir. ▶ ile dinlerken takip eder. Sayfa çevirmek için parmağınızı yana kaydırın.</span></div><button class="small-btn" id="introClose">Anladım</button>';
 }
 
 /* ---------- side panel ---------- */
@@ -898,7 +907,7 @@ function renderPop(){
   p.innerHTML='<div class="pop-h"><b>Ayarlar</b><button class="ibtn" id="popClose" type="button" aria-label="Ayarları kapat">✕</button></div><div class="fld"><label for="sAr">Arapça yazı boyutu</label><input type="range" id="sAr" min="22" max="64" value="'+st.ar+'"><div class="preview-ar tc" id="prevAr">'+ayahAr(idxOf(1,2))+'</div></div>'+
    '<div class="fld"><label for="sFont">Arapça hat</label><select id="sFont"><option value="sch">Türk nesih (iri ve açık)</option><option value="user">Yüklediğim yazı tipi</option><option value="noto">Noto Nesih (sade)</option><option value="amiri">Amiri Quran (Mısır baskısı)</option><option value="local">Bilgisayarımda kurulu yazı tipi</option></select>'+
      '<div class="hint" style="padding:2px 0" id="fontHint"></div>'+
-     '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label class="small-btn" for="sFontFile" style="cursor:pointer">Yazı tipi dosyası seç</label><span class="hint" style="padding:0">.ttf, .otf, .woff</span></div><input type="file" class="vh" id="sFontFile" accept=".ttf,.otf,.woff,.woff2">'+
+     '<div id="userFontRow" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label class="small-btn" for="sFontFile" style="cursor:pointer">Yazı tipi dosyası seç</label><span class="hint" style="padding:0">.ttf, .otf, .woff</span></div><input type="file" class="vh" id="sFontFile" accept=".ttf,.otf,.woff,.woff2">'+
      '<input class="search" id="sLocalFont" placeholder="Kurulu yazı tipinin adı" value="'+esc(st.localFont||'')+'" style="margin:4px 0 0"></div>'+
    '<div class="fld"><label for="sImla">Arapça yazım</label><select id="sImla"><option value="tr">Türk mushafı usulü</option><option value="md">Medine mushafı (Osmanî rasm)</option></select></div>'+
    '<div class="fld"><label for="sOkType">Türkçe okunuş</label><select id="sOkType"><option value="tecvid">Tecvidli ve renkli</option><option value="klasik">Sade (vasıl hâli parantezde)</option></select></div>'+
@@ -921,7 +930,9 @@ function renderPop(){
   $('#sOkType').onchange=e=>{st.okType=e.target.value;NORM=null;upd(true)};
   $('#sOk').oninput=e=>{st.ok=+e.target.value;upd()};
   renderFontHint();
-  $('#sFont').onchange=e=>{st.font=e.target.value;upd()};
+  const fontRows=()=>{ const u=st.font==='user', l=st.font==='local'; $('#fontHint').hidden=!u; $('#userFontRow').hidden=!u; $('#sLocalFont').hidden=!l };
+  fontRows();
+  $('#sFont').onchange=e=>{st.font=e.target.value;upd();fontRows()};
   $('#sLocalFont').onchange=e=>{st.localFont=e.target.value.trim(); if(st.localFont){st.font='local';$('#sFont').value='local'} upd()};
   $('#sFontFile').onchange=async e=>{const f=e.target.files[0]; if(!f) return;
     try{ const buf=await f.arrayBuffer(); await loadUserFont(buf); st.font='user'; $('#sFont').value='user'; upd();
@@ -1216,6 +1227,18 @@ document.addEventListener('keydown',e=>{
 });
 window.addEventListener('hashchange',()=>{const m=location.hash.match(/^#sayfa-(\d+)$/); if(m&&+m[1]!==st.page) goPage(+m[1])});
 
+/* ---------- parmakla sayfa çevirme (mushaf gibi: sağa kaydır = sonraki sayfa) ---------- */
+(function(){
+  let x0=0,y0=0,t0=0,ok=false;
+  const main=document.getElementById('main');
+  main.addEventListener('touchstart',e=>{ if(e.touches.length!==1){ok=false;return} const t=e.touches[0]; x0=t.clientX;y0=t.clientY;t0=Date.now();ok=true },{passive:true});
+  main.addEventListener('touchend',e=>{
+    if(!ok) return; ok=false; const t=e.changedTouches[0]; const dx=t.clientX-x0, dy=t.clientY-y0;
+    if(Date.now()-t0>700||Math.abs(dx)<70||Math.abs(dy)>Math.abs(dx)*0.6) return;
+    if(window.getSelection&&String(window.getSelection())) return;
+    goPage(st.page+(dx>0?1:-1));
+  },{passive:true});
+})();
 /* ---------- boot ---------- */
 const hm=location.hash.match(/^#sayfa-(\d+)$/); if(hm) st.page=Math.max(1,Math.min(604,+hm[1]));
 const fs=document.createElement('style');let css='';for(let k=1;k<=17;k++)css+='[data-fr="'+k+'"] .okn .r'+k+',[data-fr="'+k+'"] .ar .r'+k+'{color:var(--t'+k+')!important;background:var(--hl);border-radius:4px;-webkit-text-stroke-color:var(--hl)}';css+='[data-fr="tk"] .okn .tk,[data-fr="tk"] .ar .tk{color:var(--tk)!important;background:var(--hl)}[data-fr="tq"] .okn .tq,[data-fr="tq"] .ar .tq{color:var(--tq)!important;background:var(--hl)}';fs.textContent=css;document.head.appendChild(fs);
