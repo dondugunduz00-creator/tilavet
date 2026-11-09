@@ -156,8 +156,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 
 .surah-head{margin:10px 0 18px;text-align:center}
 .sh-band{display:flex;align-items:center;justify-content:center;gap:14px;padding:10px 16px;border:1px solid var(--gold);background:var(--gold-soft);border-radius:999px;position:relative}
-.sh-band .arn{font-family:var(--f-ar-ui);font-size:28px;line-height:1.3;direction:rtl}
-.sh-band .tr{font-size:13px;color:var(--muted);text-align:start;line-height:1.3}
+.sh-band .arn{font-family:var(--f-ar-ui);font-size:28px;line-height:1.9;direction:rtl;display:block;padding-top:.15em}
+.sh-band .tr{font-size:13px;color:var(--muted);text-align:start;line-height:1.35;display:block}
 .sh-band .tr b{display:block;color:var(--ink);font-weight:600;font-size:15px}
 .basmala{font-feature-settings:var(--ar-feat,normal);font-family:var(--f-ar);direction:rtl;font-size:calc(var(--ar-size)*.95);line-height:2;margin-top:10px}
 .basmala-ok{font-family:var(--f-read);color:var(--muted);font-size:14px}
@@ -170,7 +170,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 @media (hover:hover){.ar .w:hover:not(.hl-word){-webkit-text-stroke-color:var(--accent-soft)}}
 .ar .wqf{-webkit-text-stroke:0;font-family:var(--wq-font,inherit);font-feature-settings:normal;font-size:var(--wq-size,1em);position:relative;top:var(--wq-top,0);line-height:0;color:var(--frame);opacity:.9;padding:0 .05em}
 .ar{line-height:var(--ar-lh,2.25)!important;font-feature-settings:var(--ar-feat,normal);font-family:var(--f-ar);direction:rtl;font-size:var(--ar-size);line-height:2.25;color:var(--ink);word-spacing:.04em}
-.flow{text-align:right;text-align-last:right;word-spacing:.18em}
+.flow{text-align:justify;text-align-last:right;word-spacing:.08em;font-size:var(--mushaf-size,var(--ar-size));line-height:var(--mushaf-lh,2.15)!important}
+.flow + .surah-head{margin-top:22px}
+#pageEl[data-mode="mushaf"] .basmala{font-size:calc(var(--mushaf-size,var(--ar-size))*1.12);line-height:2}
 .flow .num{margin:0 .22em}
 .flow .ay{cursor:pointer;border-radius:8px;transition:background .15s;-webkit-box-decoration-break:clone;box-decoration-break:clone;padding:0 .08em}
 .flow .ay:hover{background:var(--accent-soft)}
@@ -316,7 +318,7 @@ body.has-player{--dock-max:20vh}
   .brk{display:block;order:9;flex-basis:100%;height:0}.seg{order:10;flex:1;min-width:0;display:flex}.seg button{flex:1;padding:6px 4px;font-size:13.5px}.player{order:11}
   .bar-in{gap:5px}.loc{gap:5px}.player{gap:5px}.spacer{display:none}.ibtn{min-width:34px;padding:0 8px}
   .loc-btn{max-width:108px}.loc-btn b{max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .sh-band{flex-direction:column;gap:2px;border-radius:16px}.sh-band .tr{text-align:center}
+  .sh-band{flex-direction:column;gap:4px;border-radius:16px;padding:8px 14px 12px}.sh-band .tr{text-align:center}
   .dock-top .tbtn{padding:4px 6px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -681,7 +683,7 @@ let read=new Set(store.get('read',[])), marks=store.get('marks',[]), judged=stor
 let sel=-1, focusRule=null, tab='sure';
 const save=()=>store.set('st',st);
 
-function applyPrefs(){
+function applyPrefs(){ setTimeout(fitMushaf,0);
   const r=document.documentElement;
   r.style.setProperty('--ar-size',st.ar+'px'); r.style.setProperty('--ok-size',st.ok+'px');
   const FF={noto:'"Noto Naskh Arabic","Scheherazade New",serif',sch:'"Scheherazade New","Amiri Quran",serif',amiri:'"Amiri Quran","Scheherazade New","Noto Naskh Arabic",serif',user:'"TilavetUser","Scheherazade New","Amiri Quran",serif',local:'"'+(st.localFont||'').replace(/"/g,'')+'","Amiri Quran",serif'};
@@ -726,6 +728,20 @@ function renderFontHint(){ const h=document.getElementById('fontHint'); if(h) h.
     await loadUserFont(u8.buffer); try{ await fontSave(u8.buffer,''); localStorage.removeItem('tv-font') }catch(e){} }catch(e){}
 })();
 
+/* mushaf düzeni: tipik bir mushaf satırı (yaklaşık 9 kelime) bir satıra sığacak yazı boyutu */
+const FIT_LINE='وَلَوْ اَنَّهُمْ صَبَرُوا حَتّٰى تَخْرُجَ اِلَيْهِمْ لَكَانَ خَيْرًا لَهُمْ وَاللّٰهُ';
+let fitProbe=null;
+function fitMushaf(){
+  const host=document.getElementById('pageEl'); if(!host) return;
+  const w=host.clientWidth; if(!w) return;
+  if(!fitProbe){ fitProbe=document.createElement('span'); fitProbe.className='ar'; fitProbe.style.cssText='position:absolute;visibility:hidden;white-space:nowrap;font-size:100px;line-height:1;left:-9999px;top:0;word-spacing:.08em'; fitProbe.textContent=FIT_LINE; document.body.appendChild(fitProbe) }
+  const pw=fitProbe.getBoundingClientRect().width||1;
+  let size=100*w*0.97/pw*(st.ar/34);
+  size=Math.max(16,Math.min(size,64));
+  document.documentElement.style.setProperty('--mushaf-size',size.toFixed(1)+'px');
+}
+addEventListener('resize',()=>{ clearTimeout(fitMushaf.t); fitMushaf.t=setTimeout(fitMushaf,120) });
+try{ document.fonts.addEventListener('loadingdone',()=>fitMushaf()) }catch(e){}
 /* ---------- page render ---------- */
 function surahHead(s){
   let h='<div class="surah-head"><div class="sh-band"><span class="arn">سُورَةُ '+esc(S[s-1][2])+'</span><span class="tr"><b>'+s+'. '+esc(S[s-1][0])+' Suresi</b>'+esc(S[s-1][1])+' · '+S[s-1][3]+' · '+S[s-1][4]+' ayet</span></div>';
@@ -763,7 +779,7 @@ function renderPage(){
     '<div class="pgnav"><button class="ibtn" data-go="'+(p-1)+'" '+(p<=1?'disabled':'')+'>Önceki sayfa</button><button class="ibtn" data-go="'+(p+1)+'" '+(p>=604?'disabled':'')+'>Sonraki sayfa</button></div></div>';
   $('#pageEl').innerHTML=h;
   if(focusRule!=null) $('#main').dataset.fr=focusRule; else delete $('#main').dataset.fr;
-  renderDock(); renderIntro(); applyHL(); if(P.on){ markPlaying(); P.word=-2; try{update()}catch(e){} } try{ if(!IN_ARTIFACT&&navigator.onLine!==false) fetchSurah(first[0]) }catch(e){}
+  $('#pageEl').dataset.mode=st.mode; fitMushaf(); renderDock(); renderIntro(); applyHL(); if(P.on){ markPlaying(); P.word=-2; try{update()}catch(e){} } try{ if(!IN_ARTIFACT&&navigator.onLine!==false) fetchSurah(first[0]) }catch(e){}
   try{ if(location.hash!=='#sayfa-'+p) history.replaceState(null,'','#sayfa-'+p) }catch(e){}
 }
 function verseHTML(i){
@@ -784,8 +800,9 @@ function verseHTML(i){
 function renderDock(){ setTimeout(()=>{applyHL(); if(!$('#player').hidden) updatePlayer()},0);
   const d=$('#dock');
   if(st.mode!=='mushaf'){d.hidden=true;return}
+  if(sel<0||A[sel][2]!==st.page){ d.hidden=true; return }
   d.hidden=false;
-  if(sel<0||A[sel][2]!==st.page){
+  if(false){
     d.innerHTML='<div class="dock-in"><div class="dock-top"><span class="ref">Ayete dokunun</span><span class="grow"></span></div><div class="hint">Okumak istediğiniz ayete dokunduğunuzda okunuşu ve meali burada açılır. Klavyede ↑ ↓ ile ayetler arasında gezebilirsiniz.</div></div>';
     return;
   }
