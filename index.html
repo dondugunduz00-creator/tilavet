@@ -1145,7 +1145,15 @@ function realWords(i){ // ekranda gösterilen kelime sıraları içinde gerçek 
   if(MERGE[key]!=null){ const m=MERGE[key]; real=real.slice(0,m).concat([{...real[m],also:real[m+1].w}],real.slice(m+2)) }
   rwCache.set(i,real); return real;
 }
-function wordTime(i,k,d){ // ayet dosyasında kelimenin yaklaşık başlangıcı (update() ile aynı ağırlıklar)
+/* Ayet kaydında gerçek kelime zamanı: sure kaydındaki kelime zamanlarını (kârinin kendi okuyuşu) ayet kaydının süresine oranlar */
+function ayahTiming(i,dur){
+  const t=P.ad&&P.adS===A[i][0]&&P.ad.t[A[i][1]]; if(!t||!t.seg||!t.seg.length||!dur||!isFinite(dur)) return null;
+  const span=t.to-t.from; if(span<=0) return null;
+  const sc=dur*1000/span; if(sc<0.6||sc>1.6) return null; // farklı kayıtsa kullanma
+  return {t,sc};
+}
+function wordTime(i,k,d){ // ayet dosyasında kelimenin başlangıcı
+  const m=ayahTiming(i,d); if(m){ const g=m.t.seg.find(x=>x[0]===k); if(g) return Math.max(0,(g[1]-m.t.from)*m.sc/1000-.03) }
   const rw=realWords(i), W=rw.map(x=>x.letters+x.madd*1.5+1), tot=W.reduce((a,b)=>a+b,0), lead=Math.min(.6,d*.04);
   let acc=0; for(let j=0;j<k-1&&j<W.length;j++) acc+=W[j]/tot;
   return Math.max(0,lead+acc*Math.max(.1,d-lead*2)-.05);
@@ -1167,6 +1175,7 @@ async function playFrom(i,wk){
   enterAyah(i,true);
   const d=await fetchSurah(A[i][0]);
   if(!P.on||P.i!==i) return;
+  P.ad=d||null; P.adS=A[i][0]; // ayet kaydı çalarken de kârinin gerçek kelime zamanları buradan alınır
   const go=()=>{ if(!P.on||P.i!==i) return; if(d&&d.t[A[i][1]]&&st.rep<=1) startSurahMode(i,d,true); else startAyahMode(i) };
   // sure başı: besmele (Fâtiha'da ayettir, Tevbe'de okunmaz). Sure kaydında besmele varsa (ilk ayetten önce ses var) oradan, yoksa ayrı besmele kaydından
   if(A[i][1]===1&&A[i][0]!==1&&A[i][0]!==9&&!P.wk){
@@ -1253,6 +1262,9 @@ function update(){
     setWord(k);
   } else {
     const d=aud.duration; if(!d||!isFinite(d)) return;
+    const m=ayahTiming(P.i,d);
+    if(m){ const ms=m.t.from+aud.currentTime*1000/m.sc; let k=-1; for(const g of m.t.seg){ if(ms>=g[1]&&ms<g[2]){ k=g[0]; break } }
+      if(k<0){ if(ms<m.t.seg[0][1]) k=-1; else k=P.word } setWord(k); return }
     const rw=realWords(P.i); const W=rw.map(x=>x.letters+x.madd*1.5+1); const tot=W.reduce((a,b)=>a+b,0);
     const lead=Math.min(.6,d*.04), frac=Math.max(0,(aud.currentTime-lead)/Math.max(.1,d-lead*2));
     let acc=0,k=rw.length; for(let j=0;j<W.length;j++){ acc+=W[j]/tot; if(frac<acc){ k=j+1; break } }
