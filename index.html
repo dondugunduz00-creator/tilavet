@@ -411,9 +411,9 @@ body.has-player{--dock-max:20vh}
   <div class="pl-in">
     <div class="pl-info"><b id="plRef"></b><small id="plRec"></small></div>
     <div class="pl-ctl">
-      <button class="pl-btn" id="plPrev" aria-label="Önceki ayet"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+      <button class="pl-btn" id="plPrev" aria-label="Önceki sayfa" title="Önceki sayfa"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
       <button class="pl-btn pl-main" id="plPlay" aria-label="Oynat / duraklat"></button>
-      <button class="pl-btn" id="plNext" aria-label="Sonraki ayet"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+      <button class="pl-btn" id="plNext" aria-label="Sonraki sayfa" title="Sonraki sayfa"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
     </div>
     <label class="pl-rep" title="Her ayeti kaç kez okusun"><span>Tekrar</span><select id="plRep" aria-label="Ayet tekrarı"><option value="1">1×</option><option value="2">2×</option><option value="3">3×</option><option value="5">5×</option><option value="7">7×</option></select></label>
     <button class="pl-btn" id="plStop" aria-label="Dinlemeyi bitir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
@@ -1093,7 +1093,7 @@ function renderPop(){
   $('#sTheme').onchange=e=>{st.theme=e.target.value;upd()};
   $('#sRec').onchange=e=>{st.reciter=e.target.value; if(P.on) stopAud(); upd()};
   $('#sReset').onclick=()=>{ const keep={page:st.page,mode:st.mode,intro:false}; Object.keys(st).forEach(k=>delete st[k]); Object.assign(st,DEF,keep); save(); arCache.clear(); applyPrefs(); renderPage(); renderPop(); toast('Görünüm varsayılan ayarlara döndü.') };
-  $('#sRep').onchange=e=>{st.rep=+e.target.value;upd()};
+  $('#sRep').onchange=e=>{st.rep=+e.target.value;upd(); P.repLeft=st.rep; if(P.on&&P.mode==='surah'&&st.rep>1) playFrom(P.i)};
   $('#sRate').onchange=e=>{st.rate=+e.target.value; applyRate(); upd()};
 }
 
@@ -1167,10 +1167,10 @@ async function playFrom(i,wk){
   enterAyah(i,true);
   const d=await fetchSurah(A[i][0]);
   if(!P.on||P.i!==i) return;
-  const go=()=>{ if(!P.on||P.i!==i) return; if(d&&d.t[A[i][1]]) startSurahMode(i,d,true); else startAyahMode(i) };
+  const go=()=>{ if(!P.on||P.i!==i) return; if(d&&d.t[A[i][1]]&&st.rep<=1) startSurahMode(i,d,true); else startAyahMode(i) };
   // sure başı: besmele (Fâtiha'da ayettir, Tevbe'de okunmaz). Sure kaydında besmele varsa (ilk ayetten önce ses var) oradan, yoksa ayrı besmele kaydından
   if(A[i][1]===1&&A[i][0]!==1&&A[i][0]!==9&&!P.wk){
-    if(d&&d.t[1]&&d.t[1].from>=2500){ go(); return }
+    if(st.rep<=1&&d&&d.t[1]&&d.t[1].from>=2500){ go(); return }
     playBasmala(go); return;
   }
   go();
@@ -1287,7 +1287,10 @@ function togglePlay(){
   const start=want>=0?want:(HL&&A[HL.i]&&A[HL.i][2]===st.page?HL.i:pages[st.page][0]);
   playFrom(start);
 }
-function stepAyah(d){ if(!P.on) return; const n=Math.max(0,Math.min(A.length-1,P.i+d)); const keep=P.mode==='surah'&&A[n][0]===P.s&&P.data.t[A[n][1]];
+function stepPage(d){ if(!P.on) return; const p=Math.max(1,Math.min(604,A[P.i][2]+d)); if(p===A[P.i][2]&&d>0) return; jumpTo(pages[p][0]) }
+function stepAyah(d){ if(!P.on) return; jumpTo(Math.max(0,Math.min(A.length-1,P.i+d))) }
+function jumpTo(n){
+  const keep=P.mode==='surah'&&A[n][0]===P.s&&P.data&&P.data.t[A[n][1]]&&!(A[n][1]===1&&A[n][0]!==1&&A[n][0]!==9);
   P.repLeft=st.rep;
   if(keep){ enterAyah(n); aud.currentTime=P.data.t[A[n][1]].from/1000; if(aud.paused){ aud.play().catch(audErr) } }
   else playFrom(n);
@@ -1336,8 +1339,8 @@ function setMediaSession(){
     navigator.mediaSession.metadata=new MediaMetadata({title:S[a[0]-1][0]+' Suresi, '+a[1]+'. ayet',artist:(RECS[st.reciter]||{}).n||'',album:'Tilâvet'});
     navigator.mediaSession.setActionHandler('play',()=>togglePlay());
     navigator.mediaSession.setActionHandler('pause',()=>togglePlay());
-    navigator.mediaSession.setActionHandler('previoustrack',()=>stepAyah(-1));
-    navigator.mediaSession.setActionHandler('nexttrack',()=>stepAyah(1));
+    navigator.mediaSession.setActionHandler('previoustrack',()=>stepPage(-1));
+    navigator.mediaSession.setActionHandler('nexttrack',()=>stepPage(1));
     navigator.mediaSession.setActionHandler('stop',()=>stopAud());
   }catch(e){}
 }
@@ -1408,8 +1411,8 @@ $('#pgInput').addEventListener('keydown',e=>{if(e.key==='Enter'){goPage(+e.targe
 $('#setBtn').onclick=()=>{const p=$('#pop'); if(p.hidden){renderPop(); const t=document.querySelector('.bar').getBoundingClientRect().bottom; p.style.top=(t+8)+'px'; p.style.maxHeight='calc(100vh - '+(t+24)+'px)'; p.hidden=false; ovPush()} else hidePop()};
 $('#bmBtn').onclick=()=>{const p=st.page; marks=marks.includes(p)?marks.filter(x=>x!==p):[...marks,p]; store.set('marks',marks); renderPage(); if(tab==='hatim') renderTab(); toast(marks.includes(p)?'Sayfa '+p+' yer imlerine eklendi.':'Yer imi kaldırıldı.')};
 $('#playBtn').onclick=togglePlay;
-$('#plPlay').onclick=togglePlay; $('#plPrev').onclick=()=>stepAyah(-1); $('#plNext').onclick=()=>stepAyah(1); $('#plStop').onclick=stopAud;
-$('#plRep').onchange=e=>{st.rep=+e.target.value; P.repLeft=st.rep; save()};
+$('#plPlay').onclick=togglePlay; $('#plPrev').onclick=()=>stepPage(-1); $('#plNext').onclick=()=>stepPage(1); $('#plStop').onclick=stopAud;
+$('#plRep').onchange=e=>{st.rep=+e.target.value; P.repLeft=st.rep; save(); if(P.on&&P.mode==='surah'&&st.rep>1){ const i=P.i, wasPaused=aud.paused; playFrom(i); if(wasPaused) setTimeout(()=>{ try{aud.pause()}catch(_){} },50) } };
 
 document.addEventListener('keydown',e=>{
   if(e.target.closest('input,select,textarea')) return;
@@ -1440,8 +1443,12 @@ window.addEventListener('hashchange',()=>{ if(Date.now()<navMute) return; const 
   document.addEventListener('pointerdown',e=>{
     fired=false; cancel(); if(e.button>0) return;
     const w=e.target.closest('.ar .w[data-w],.okn .w[data-w]'), host=w&&w.closest('[data-i]');
-    if(!w||!host||e.target.closest('button')) return;
+    let bs=w&&!host?w.closest('.basmala[data-bs]'):null;
+    if(w&&!host&&!bs){ const ok=w.closest('.basmala-ok'); const pv=ok&&ok.previousElementSibling; if(pv&&pv.matches('.basmala[data-bs]')) bs=pv }
+    if(!w||(!host&&!bs)||e.target.closest('button')) return;
     x0=e.clientX; y0=e.clientY;
+    if(bs){ tm=setTimeout(()=>{ tm=0; fired=true; try{navigator.vibrate&&navigator.vibrate(15)}catch(_){}
+      const s1=+bs.dataset.bs, fi=surahFirst[s1]; sel=fi; startHint=-1; if(P.on) stopAud(); playFrom(fi); toast('Besmeleden okunuyor',1800) },480); return }
     tm=setTimeout(()=>{ tm=0; fired=true; try{navigator.vibrate&&navigator.vibrate(15)}catch(_){}
       w.classList.add('lp'); setTimeout(()=>w.classList.remove('lp'),400);
       playFromWord(+host.dataset.i,+w.dataset.w) },480);
