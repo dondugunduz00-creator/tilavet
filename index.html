@@ -336,6 +336,7 @@ body.has-player{--dock-max:20vh}
 .sh-btns{display:flex;gap:8px;margin-top:8px}.small-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
 #plRange.on{color:var(--accent);background:rgba(127,127,127,.15)}
 @media (max-width:420px){.hide-xs{display:none}}
+.basmala{text-wrap:balance}
 .off-st{font-size:14px}.off-st .muted{color:var(--muted)}
 .off-btns{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
 .off-bar{height:6px;border-radius:3px;background:var(--line,rgba(0,0,0,.1));overflow:hidden;margin:8px 0 4px}.off-bar i{display:block;height:100%;background:var(--accent);transition:width .3s}
@@ -879,13 +880,23 @@ function lnLayout(el){
     }
     lines.push([a,b]); a=b;
   }
+  // büyük yazı: aynı satır sayısını koruyup kelimeleri satırlara dengeli dağıt (bir satırda tek kelime kalmasın, satırlar eşit dolsun)
+  if(big&&lines.length>1){
+    const n=toks.length, K=lines.length, pre=[0]; for(let k=0;k<n;k++) pre.push(pre[k]+wd[k]);
+    const nat=(i,j)=>pre[j]-pre[i]+(j-i-1)*g;
+    const cost=(i,j)=>{ const w=nat(i,j); if(w>W+.5) return j-i===1?0:Infinity; const sl=(W-w)/W; return sl*sl+(j-i===1&&n>K?0.15:0) };
+    const D=[...Array(K+1)].map(()=>new Array(n+1).fill(Infinity)), Bk=[...Array(K+1)].map(()=>new Array(n+1).fill(-1));
+    D[0][0]=0;
+    for(let k=1;k<=K;k++) for(let j=k;j<=n;j++) for(let i=j-1;i>=k-1;i--){ const c=cost(i,j); if(c===Infinity) break; const v=D[k-1][i]+c; if(v<D[k][j]){ D[k][j]=v; Bk[k][j]=i } }
+    if(D[K][n]<Infinity){ const L=[]; let j=n; for(let k=K;k>0;k--){ const i=Bk[k][j]; L.unshift([i,j]); j=i } lines.length=0; lines.push(...L) }
+  }
   let h='';
   lines.forEach(([a,b],li)=>{
     const n=b-a; let w=0; for(let k=a;k<b;k++) w+=wd[k];
     const last=li===lines.length-1;
     let f=1, gap=g, fill=true;
     if(n>1){ gap=(W-w)/(n-1) }
-    if(big){ if(n<2||gap>g*1.7) { gap=g; fill=false } }
+    if(big){ if(n<2||gap>g*2.2) { gap=g; fill=false } }
     else if(last && gap>g*LN.gmax){ gap=g; fill=false }
     else if(n<2 || gap<g*LN.gmin || gap>g*LN.gmax){
       const gt=n>1?Math.max(g*LN.gmin,Math.min(g*LN.gmax,gap)):0;
