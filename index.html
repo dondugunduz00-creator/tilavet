@@ -325,6 +325,9 @@ body.has-player{--dock-max:20vh}
 .pop-sec{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin:18px 0 2px;padding-top:12px;border-top:1px solid var(--line,rgba(0,0,0,.08))}
 .seg button{white-space:nowrap}
 @media (max-width:350px){.seg button{padding-left:8px;padding-right:8px;font-size:14px}}
+.off-st{font-size:14px}.off-st .muted{color:var(--muted)}
+.off-btns{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.off-bar{height:6px;border-radius:3px;background:var(--line,rgba(0,0,0,.1));overflow:hidden;margin:8px 0 4px}.off-bar i{display:block;height:100%;background:var(--accent);transition:width .3s}
 .pop-h + .pop-sec{margin-top:4px;padding-top:0;border-top:0}
 .jump{display:flex;gap:8px;margin:0 0 10px}.jump input{flex:1;margin:0}.pl-in{gap:4px}}
 /* settings popover */
@@ -1067,9 +1070,10 @@ function renderPop(){
    '<div class="fld"><label for="sTheme">Tema</label><select id="sTheme"><option value="auto">Cihazla aynı</option><option value="light">Açık</option><option value="dark">Koyu (gece okuması)</option></select></div>'+
    '<div class="pop-sec">Sesli dinleme</div><div class="fld"><label for="sRec">Kâri</label><select id="sRec"><option value="Alafasy_128kbps">Mishary Alafasy</option><option value="Husary_128kbps">Mahmud Halil el-Husari</option><option value="Abdul_Basit_Murattal_192kbps">Abdulbasit Abdussamed (Murattal)</option><option value="Minshawy_Murattal_128kbps">Muhammed Sıddık el-Minşavi</option><option value="Husary_Muallim_128kbps">Husari Muallim (öğretici, yavaş)</option></select></div>'+
    '<div class="fld"><label for="sRate">Okuma hızı</label><select id="sRate"><option value="0.75">Yavaş (0,75×)</option><option value="0.9">Biraz yavaş (0,9×)</option><option value="1">Normal</option><option value="1.15">Biraz hızlı (1,15×)</option></select></div>'+
+   '<div class="pop-sec">İnternetsiz dinleme</div><div class="fld" id="offBox"></div>'+
    '<div class="pop-sec">Sıfırlama</div><div class="fld"><button class="small-btn" id="sReset" type="button">Görünümü varsayılana döndür</button></div>'+
    '<div class="fld"><label for="sRep">Her ayeti tekrar</label><select id="sRep"><option value="1">1 kez</option><option value="2">2 kez</option><option value="3">3 kez</option><option value="5">5 kez</option></select></div>';
-  $('#sFont').value=st.font;$('#sImla').value=st.imla;$('#sOkType').value=st.okType;$('#sMeal').value=st.meal;$('#sTheme').value=st.theme;$('#sRec').value=st.reciter;$('#sRate').value=String(st.rate||1);$('#sRep').value=String(st.rep);
+  $('#sFont').value=st.font;$('#sImla').value=st.imla;$('#sOkType').value=st.okType;$('#sMeal').value=st.meal;$('#sTheme').value=st.theme;$('#sRec').value=st.reciter; offPaintNow();$('#sRate').value=String(st.rate||1);$('#sRep').value=String(st.rep);
   const prev=$('#prevAr');
   const upd=(rerender)=>{save();applyPrefs();prev.classList.toggle('tc',st.tc);if(rerender)renderPage()};
   $('#sAr').oninput=e=>{st.ar=+e.target.value;upd()};
@@ -1091,7 +1095,7 @@ function renderPop(){
   $('#sTk').onchange=e=>{st.tk=e.target.checked;upd()};
   $('#sTq').onchange=e=>{st.tq=e.target.checked;upd()};
   $('#sTheme').onchange=e=>{st.theme=e.target.value;upd()};
-  $('#sRec').onchange=e=>{st.reciter=e.target.value; if(P.on) stopAud(); upd()};
+  $('#sRec').onchange=e=>{st.reciter=e.target.value; if(P.on) stopAud(); upd(); offScan()};
   $('#sReset').onclick=()=>{ const keep={page:st.page,mode:st.mode,intro:false}; Object.keys(st).forEach(k=>delete st[k]); Object.assign(st,DEF,keep); save(); arCache.clear(); applyPrefs(); renderPage(); renderPop(); toast('Görünüm varsayılan ayarlara döndü.') };
   $('#sRep').onchange=e=>{st.rep=+e.target.value;upd(); P.repLeft=st.rep; if(P.on&&P.mode==='surah'&&st.rep>1) playFrom(P.i)};
   $('#sRate').onchange=e=>{st.rate=+e.target.value; applyRate(); upd()};
@@ -1113,6 +1117,91 @@ const SILENT='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAAB
 const P={on:false,mode:null,s:0,i:-1,data:null,repLeft:1,raf:0,word:-1,lastW:null,fellBack:false,wake:null};
 let playIdx=-1; // geriye uyumluluk
 const surahCache={};
+/* ---------- internetsiz dinleme: ayet kayıtlarını telefona indir ---------- */
+const OFF_SRC={ // aynı kaydın farklı sunuculardaki kopyaları; ilk izin veren kullanılır
+  Alafasy_128kbps:[i=>'https://cdn.islamic.network/quran/audio/128/ar.alafasy/'+(i+1)+'.mp3', i=>'https://everyayah.com/data/Alafasy_128kbps/'+pad3(A[i][0])+pad3(A[i][1])+'.mp3', i=>'https://verses.quran.com/Alafasy/mp3/'+pad3(A[i][0])+pad3(A[i][1])+'.mp3']
+};
+const OFF={c:{}, run:false, q:[], done:0, total:0, fail:0, src:0, bytes:0};
+const offCacheName=r=>'tilavet-ses-'+r;
+const offKey=(r,i)=>'https://everyayah.com/data/'+r+'/'+pad3(A[i][0])+pad3(A[i][1])+'.mp3';
+const offOK=()=>!IN_ARTIFACT&&'caches' in window&&'serviceWorker' in navigator&&window.isSecureContext;
+function offHas(s,r){ r=r||st.reciter; const c=OFF.c[r]; return !!(c&&c[s]>=S[s-1][4]) }
+async function offScan(r){
+  r=r||st.reciter; if(!offOK()||!OFF_SRC[r]) return;
+  try{ const c=await caches.open(offCacheName(r)); const ks=await c.keys(); const m={};
+    ks.forEach(k=>{ const x=k.url.match(/\/(\d{3})(\d{3})\.mp3$/); if(x){ const s1=+x[1]; m[s1]=(m[s1]||0)+1 } }); OFF.c[r]=m }catch(e){}
+  offPaint();
+}
+async function offFetch(r,i){
+  const L=OFF_SRC[r];
+  for(let t=0;t<L.length;t++){ const k=(OFF.src+t)%L.length;
+    try{ const res=await fetch(L[k](i),{mode:'cors',credentials:'omit'}); if(res.ok&&res.type!=='opaque'){ OFF.src=k; return res } }catch(e){}
+  }
+  return null;
+}
+async function offStart(list,label){
+  const r=st.reciter;
+  if(!offOK()){ toast('İnternetsiz dinleme yalnızca uygulamanın kendi sitesinde (ana ekrana eklenmiş hâlinde) çalışır.',4000); return }
+  if(!OFF_SRC[r]){ toast('Bu kâri için indirme henüz yok. Mishary Alafasy seçin.',3500); return }
+  if(OFF.run){ toast('Bir indirme zaten sürüyor.'); return }
+  try{ navigator.storage&&navigator.storage.persist&&navigator.storage.persist() }catch(e){}
+  const c=await caches.open(offCacheName(r));
+  const have=new Set((await c.keys()).map(k=>k.url));
+  OFF.q=list.filter(i=>!have.has(offKey(r,i))); OFF.total=OFF.q.length; OFF.done=0; OFF.fail=0; OFF.label=label; OFF.r=r;
+  if(!OFF.total){ toast(label+' zaten indirilmiş.'); return }
+  OFF.run=true; requestWake(); offPaint();
+  const surahs=[...new Set(list.map(i=>A[i][0]))]; surahs.forEach(s1=>{ fetchSurah(s1) }); // kelime zamanları da önbelleğe
+  let firstFail=true;
+  const worker=async()=>{
+    while(OFF.run&&OFF.q.length){
+      const i=OFF.q.shift(); const res=await offFetch(r,i);
+      if(res){ try{ const b=await res.blob(); await c.put(offKey(r,i),new Response(b,{headers:{'Content-Type':'audio/mpeg','Content-Length':String(b.size)}})); OFF.bytes+=b.size;
+          const s1=A[i][0]; (OFF.c[r]=OFF.c[r]||{})[s1]=(OFF.c[r][s1]||0)+1; OFF.done++ }
+        catch(e){ OFF.fail++; if(e&&e.name==='QuotaExceededError'){ OFF.run=false; toast('Telefonda yer kalmadı. İndirme durdu.',5000) } } }
+      else { OFF.fail++; if(firstFail&&OFF.done===0&&OFF.fail>=4){ firstFail=false; OFF.run=false; toast('Ses sunucusuna ulaşılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.',5000) } }
+      offPaint();
+    }
+  };
+  await Promise.all([worker(),worker(),worker(),worker()]);
+  const ok=OFF.run; OFF.run=false; await offScan(r);
+  if(ok) toast(OFF.fail?OFF.label+': '+OFF.done+' kayıt indi, '+OFF.fail+' kayıt inmedi. Tekrar "İndir"e basarsanız eksikler tamamlanır.':OFF.label+' indirildi. Artık internetsiz dinleyebilirsiniz.',5000);
+}
+function offStop(){ OFF.run=false; OFF.q=[]; offPaint() }
+async function offDelete(){
+  try{ await caches.delete(offCacheName(st.reciter)) }catch(e){}
+  OFF.c[st.reciter]={}; offPaint(); toast('İndirilen sesler silindi.');
+}
+function fmtMB(b){ return b>=1e9?(b/1e9).toFixed(2).replace('.',',')+' GB':Math.round(b/1e6)+' MB' }
+let offPT=0; function offPaint(){ if(offPT) return; offPT=setTimeout(()=>{ offPT=0; offPaintNow() },300) }
+async function offPaintNow(){
+  const el=document.getElementById('offBox'); if(!el) return;
+  const r=st.reciter, nm=(RECS[r]||{}).n||'';
+  if(!offOK()){ el.innerHTML='<div class="hint" style="padding:0">İndirme, uygulamanın kendi sitesinde ve ana ekrana eklenmiş hâlinde çalışır.</div>'; return }
+  if(!OFF_SRC[r]){ el.innerHTML='<div class="hint" style="padding:0">İnternetsiz dinleme şimdilik yalnızca <b>Mishary Alafasy</b> için var. Kâri olarak onu seçin.</div>'; return }
+  const m=OFF.c[r]||{}; let full=0, ay=0; for(let k=1;k<=114;k++){ ay+=Math.min(m[k]||0,S[k-1][4]); if((m[k]||0)>=S[k-1][4]) full++ }
+  const cs=A[pages[st.page][0]][0], cj=pageJuz[st.page];
+  let h='<div class="off-st">'+nm+': <b>'+full+'</b> / 114 sure tam indirildi'+(ay&&full<114?' <span class="muted">('+ay+' / 6236 ayet)</span>':'')+'</div>';
+  try{ if(navigator.storage&&navigator.storage.estimate){ const e=await navigator.storage.estimate(); if(e&&e.usage) h+='<div class="hint" style="padding:0">Uygulamanın kullandığı yer: '+fmtMB(e.usage)+'</div>' } }catch(e){}
+  if(OFF.run&&OFF.r===r){ const p=OFF.total?Math.round(OFF.done*100/OFF.total):0;
+    h+='<div class="off-bar"><i style="width:'+p+'%"></i></div><div class="hint" style="padding:0">'+OFF.label+' indiriliyor: '+OFF.done+' / '+OFF.total+' ('+p+'%). Uygulama açık kalsın.</div><div class="off-btns"><button class="small-btn" type="button" id="offStop">Durdur</button></div>';
+  } else {
+    h+='<div class="off-btns"><button class="small-btn" type="button" id="offSurah">'+(offHas(cs)?'✓ ':'')+S[cs-1][0]+' suresini indir</button><button class="small-btn" type="button" id="offJuz">'+cj+'. cüzü indir</button><button class="small-btn" type="button" id="offAll">Tüm Kur\'an\'ı indir</button>'+(ay?'<button class="small-btn" type="button" id="offDel">İndirilenleri sil</button>':'')+'</div>'+
+      '<div class="hint" style="padding:0">Tüm Kur\'an yaklaşık 1 GB yer tutar ve Wi-Fi ile birkaç dakika–yarım saat sürebilir. İndirilen sureler internetsiz de çalınır, tekrar ve kelime takibi aynen çalışır.</div><div id="offDelC"></div>';
+  }
+  el.innerHTML=h;
+}
+document.addEventListener('click',e=>{
+  const t=e.target; if(!t.closest||!t.closest('#offBox')) return;
+  const ixs=f=>A.map((a,i)=>f(a)?i:-1).filter(i=>i>=0);
+  if(t.closest('#offSurah')){ const cs=A[pages[st.page][0]][0]; offStart(ixs(a=>a[0]===cs||(a[0]===1&&a[1]===1)),S[cs-1][0]+' suresi') }
+  else if(t.closest('#offJuz')){ const cj=pageJuz[st.page]; offStart(ixs(a=>a[3]===cj||(a[0]===1&&a[1]===1)),cj+'. cüz') }
+  else if(t.closest('#offAll')){ offStart(A.map((a,i)=>i),'Tüm Kur\'an') }
+  else if(t.closest('#offStop')){ offStop() }
+  else if(t.closest('#offDel')){ $('#offDelC').innerHTML='<div class="hint" style="padding:6px 0 0">İndirilen tüm sesler silinecek. Emin misiniz?</div><div class="off-btns"><button class="small-btn" type="button" id="offDelY">Evet, sil</button><button class="small-btn" type="button" id="offDelN">Vazgeç</button></div>' }
+  else if(t.closest('#offDelY')){ offDelete() }
+  else if(t.closest('#offDelN')){ $('#offDelC').innerHTML='' }
+});
+setTimeout(()=>offScan(),1500);
 function fetchSurah(s){
   const r=RECS[st.reciter]; if(!r||IN_ARTIFACT) return Promise.resolve(null);
   const k=r.cdn+':'+s;
@@ -1176,10 +1265,11 @@ async function playFrom(i,wk){
   const d=await fetchSurah(A[i][0]);
   if(!P.on||P.i!==i) return;
   P.ad=d||null; P.adS=A[i][0]; // ayet kaydı çalarken de kârinin gerçek kelime zamanları buradan alınır
-  const go=()=>{ if(!P.on||P.i!==i) return; if(d&&d.t[A[i][1]]&&st.rep<=1) startSurahMode(i,d,true); else startAyahMode(i) };
+  const useAyah=st.rep>1||offHas(A[i][0])||!navigator.onLine;
+  const go=()=>{ if(!P.on||P.i!==i) return; if(d&&d.t[A[i][1]]&&!useAyah) startSurahMode(i,d,true); else startAyahMode(i) };
   // sure başı: besmele (Fâtiha'da ayettir, Tevbe'de okunmaz). Sure kaydında besmele varsa (ilk ayetten önce ses var) oradan, yoksa ayrı besmele kaydından
   if(A[i][1]===1&&A[i][0]!==1&&A[i][0]!==9&&!P.wk){
-    if(st.rep<=1&&d&&d.t[1]&&d.t[1].from>=2500){ go(); return }
+    if(!useAyah&&d&&d.t[1]&&d.t[1].from>=2500){ go(); return }
     playBasmala(go); return;
   }
   go();
@@ -1477,5 +1567,5 @@ applyPrefs(); renderPage(); renderTab();
 })();
 </script>
 
-<script>if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost')){let had=!!navigator.serviceWorker.controller,rl=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(had&&!rl){rl=true;location.reload()}});addEventListener('load',()=>navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}))}</script>
+<script>if('serviceWorker' in navigator&&(window.isSecureContext||location.hostname==='localhost')){let had=!!navigator.serviceWorker.controller,rl=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(had&&!rl){rl=true;location.reload()}});addEventListener('load',()=>navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}))}</script>
 </body></html>
