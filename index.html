@@ -866,7 +866,7 @@ function lnLayout(el){
   const big=s*9>W;
   el.innerHTML='<div class="ln ln-m" style="font-size:'+s+'px;column-gap:0">'+toks.map(t=>'<span class="tok">'+t.html+'</span>').join('')+'</div>';
   const wd=[...el.firstChild.children].map(c=>c.getBoundingClientRect().width);
-  const g=LN.gap*s;
+  const g=(big?LN.gap*.8:LN.gap)*s;
   // satır kırma: her adımda "taşmadan bırak" ile "biraz sıkıştırıp al" arasından daha az bozanı seç
   const lines=[]; let a=0;
   while(a<toks.length){
@@ -896,7 +896,9 @@ function lnLayout(el){
     const last=li===lines.length-1;
     let f=1, gap=g, fill=true;
     if(n>1){ gap=(W-w)/(n-1) }
-    if(big){ if(n<2||gap>g*2.2) { gap=g; fill=false } }
+    let kj=false;
+    if(big){ gap=g; fill=false; kj=!last }   // büyük yazı: aralık sabit, satır keşide ile doldurulur (aşağıda)
+    else if(!last&&n>1&&gap>g*1.3){ gap=g; fill=false; kj=true }   // aralık çok açılacaksa: keşide
     else if(last && gap>g*LN.gmax){ gap=g; fill=false }
     else if(n<2 || gap<g*LN.gmin || gap>g*LN.gmax){
       const gt=n>1?Math.max(g*LN.gmin,Math.min(g*LN.gmax,gap)):0;
@@ -904,16 +906,62 @@ function lnLayout(el){
       gap=n>1?(W-f*w)/(n-1):0; if(gap<g*.5) gap=g*.5;
     }
     const fs=(s*f).toFixed(2);
-    h+='<div class="ln'+(fill?'':' ln-last')+'" style="font-size:'+fs+'px;column-gap:'+(fill?gap:g).toFixed(2)+'px;--hg:'+((fill?gap:g)/2).toFixed(2)+'px;height:'+(s*2.05).toFixed(1)+'px">';
+    h+='<div class="ln'+(fill?'':' ln-last')+'"'+(kj?' data-k="1"':'')+' style="font-size:'+fs+'px;column-gap:'+(fill?gap:g).toFixed(2)+'px;--hg:'+((fill?gap:g)/2).toFixed(2)+'px;height:'+(s*2.05).toFixed(1)+'px">';
     for(let k=a;k<b;k++){ const t=toks[k];
       h+= t.ai!=null ? '<span class="ay tok'+(+t.ai===sel?' sel':'')+'" data-i="'+t.ai+'">'+t.html+'</span>' : '<span class="tok">'+t.html+'</span>' }
     h+='</div>';
   });
   el.innerHTML=h; el.classList.add('laid');
+  if(el.querySelector('.ln[data-k]')) kashidaFill(el,W,g);
   // güvenlik: yine de taşan satır olursa o satırı küçült
   el.querySelectorAll('.ln:not(.ln-last)').forEach(l=>{ let sw=0; l.querySelectorAll('.tok').forEach(k=>sw+=k.getBoundingClientRect().width); const gp=parseFloat(l.style.columnGap)||0; const n=l.children.length; const need=sw+(n-1)*gp;
     if(need>W+1){ const f=(W-(n-1)*gp)/sw; l.style.fontSize=(parseFloat(l.style.fontSize)*f).toFixed(2)+'px' } });
 }
+/* Keşide: büyük yazıda satırı kelime aralığını açmadan, harfleri uzatarak (ـ) iki yana yasla */
+const KJ='بتثجحخسشصضطظعغفقكلمنهيئىیـ', KL=/[\u0621-\u064A\u0671\u06CC\u0640]/, KM=/[\u064B-\u065F\u0670\u06D6-\u06ED]/;
+function kashidaSlots(w){
+  const tw=document.createTreeWalker(w,NodeFilter.SHOW_TEXT); const ch=[]; let nd;
+  while((nd=tw.nextNode())) for(let k=0;k<nd.data.length;k++) ch.push([nd,k,nd.data[k]]);
+  const base=[]; ch.forEach((c,k)=>{ if(KL.test(c[2])) base.push(k) });
+  const lets=base.map(k=>ch[k][2]).join('');
+  if(/لله/.test(lets)||lets.length<3) return [];   // Allah lafzı ve çok kısa kelimeler uzatılmaz
+  const out=[];
+  for(let b=base.length-2;b>=0;b--){
+    const cur=ch[base[b]][2], nx=ch[base[b+1]][2];
+    if(!KJ.includes(cur)||cur==='ـ'||nx==='ـ') continue;
+    if(cur==='ل'&&'اأإآٱ'.includes(nx)) continue;   // lâm-elif bitişiği bozulmasın
+    let k=base[b]+1; while(k<ch.length&&k<base[b+1]&&KM.test(ch[k][2])) k++;
+    out.push({node:ch[k-1][0],off:ch[k-1][1]+1});
+    break;                                        // kelimede tek uzatma noktası: son bağlantı
+  }
+  return out;
+}
+function kashidaFill(el,W,g){
+  const lines=[...el.querySelectorAll('.ln')];
+  lines.forEach((l,li)=>{
+    if(!l.dataset.k) return;                        // yalnızca işaretli satırlar (son satır sağa yaslı kalır)
+    const n=l.children.length;
+    const width=()=>{ let w=0; [...l.children].forEach(c=>w+=c.getBoundingClientRect().width); return w+(n-1)*g };
+    const orig=l.innerHTML, w0=width(); if(w0>=W-1) return;
+    const nslots=[...l.querySelectorAll('.w')].filter(x=>kashidaSlots(x).length).length; if(!nslots) return;
+    // T tane uzatmayı kelimelere sırayla dağıt, satırı baştan çiz (Chrome yerinde değişiklikte yanlış çiziyor), ölç
+    const build=T=>{
+      l.innerHTML=orig;
+      const ws=[...l.querySelectorAll('.w')].map(x=>({sl:kashidaSlots(x),len:x.textContent.length})).filter(x=>x.sl.length).sort((a,b)=>b.len-a.len);
+      const cnt=ws.map(()=>0); for(let t=0;t<T;t++) cnt[t%ws.length]++;
+      ws.forEach((x,k)=>{ if(cnt[k]) x.sl[0].node.insertData(x.sl[0].off,'ـ'.repeat(cnt[k])) });
+      l.innerHTML=l.innerHTML; return width();
+    };
+    const probe=Math.max(nslots,4), w1=build(probe), tw=(w1-w0)/probe; if(tw<=0.3){ l.innerHTML=orig; return }
+    const maxT=Math.floor(nslots*Math.max(2,Math.round(s0(l)*0.9/tw)));   // kelime başına en çok ~0.9em uzatma
+    let T=Math.min(maxT,Math.floor((W-w0)/tw)), w=T?build(T):(l.innerHTML=orig,w0);
+    while(T>0&&w>W){ T--; w=T?build(T):(l.innerHTML=orig,w0) }
+    const rem=W-w;
+    if(n>1&&rem>0&&rem<g*1.6){ const gp=g+rem/(n-1); l.style.columnGap=gp.toFixed(2)+'px'; l.style.setProperty('--hg',(gp/2).toFixed(2)+'px'); l.classList.remove('ln-last') }
+    else if(rem<=0.5) l.classList.remove('ln-last');
+  });
+}
+function s0(l){ return parseFloat(l.style.fontSize)||parseFloat(getComputedStyle(l).fontSize) }
 function layoutAll(){ document.querySelectorAll('#pageEl .flow, #pageEl .ar.vt').forEach(el=>{ try{ lnLayout(el) }catch(e){} }); try{ applyHL(); if(typeof P!=='undefined'&&P.on) markPlaying() }catch(e){} }
 function selAy(i){ document.querySelectorAll('.ay.sel').forEach(x=>x.classList.remove('sel')); document.querySelectorAll('.ay[data-i="'+i+'"]').forEach(x=>x.classList.add('sel')) }
 
