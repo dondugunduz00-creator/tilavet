@@ -668,7 +668,9 @@ function trImla(chars){
     }
     o.push([ch,c]);
   }
-  return trImla2(o, st.font==='sch'||st.font==='noto'||st.font==='amiri');
+  const ek=st.font==='user'&&userEkalem;
+  if(ek){ for(let k=0;k<o.length-1;k++){ if(o[k][0]==='ِ'&&o[k+1][0]==='ۦ'){ o[k]=['ٖ',o[k][1]]; o.splice(k+1,1) } } } // بِهِۦ → بِهٖ
+  return trImla2(o, st.font==='sch'||st.font==='noto'||st.font==='amiri'||ek);
 }
 /* Türk mushafı yazım alışkanlıkları: okunmayan harfte sükûn yok, ءَا → اٰ, Allah lafzında ّٰ, uzun î'de kesre-i işbâ */
 function trImla2(ch, rich){
@@ -709,7 +711,7 @@ function spanify(chars){
 }
 const arCache=new Map();
 function ayahAr(i){
-  const key=i+'|'+st.imla; if(arCache.has(key)) return arCache.get(key);
+  const key=i+'|'+st.imla+'|'+st.font+(userEkalem?'e':''); if(arCache.has(key)) return arCache.get(key);
   const f=A[i][5]; let chars=[];
   for(let k=0;k<f.length;k++){ const t=f[k]; let c=0; if(typeof f[k+1]==='number'){c=f[k+1];k++} for(const ch of t) chars.push([ch,c]) }
   if(st.imla==='tr') chars=trImla(chars); else chars=chars.map(x=>x[0]==='ٮ'?['ى',x[1]]:x);
@@ -805,18 +807,26 @@ function applyHL(){
   });
   if(st.mode==='mushaf'){ const ay=document.querySelector('.ay[data-i="'+HL.i+'"]'); if(ay) ay.classList.add('hl-ayah') }
 }
-let userFontReady=false, userHusrev=false;
+let userFontReady=false, userHusrev=false, userEkalem=false, userFontName='';
+function fontName(buf){ // yazı tipi dosyasının içindeki aile adı
+  try{ let best=''; const d=new DataView(buf), n=d.getUint16(4);
+    for(let k=0;k<n;k++){ const r=12+k*16; if(String.fromCharCode(d.getUint8(r),d.getUint8(r+1),d.getUint8(r+2),d.getUint8(r+3))!=='name') continue;
+      const o=d.getUint32(r+8), cnt=d.getUint16(o+2), so=o+d.getUint16(o+4);
+      for(let j=0;j<cnt;j++){ const q=o+6+j*12; const id=d.getUint16(q+6); if(d.getUint16(q)===3&&(id===1||id===4)){ const len=d.getUint16(q+8), off=so+d.getUint16(q+10); let t=''; for(let x=0;x<len;x+=2) t+=String.fromCharCode(d.getUint16(off+x)); if(t&&t[0]!=='<'&&!best) best=t } } return best }
+  }catch(e){} return '' }
 async function loadUserFont(buf){
-  userHusrev=[1241508,1675652].includes(buf.byteLength); // Hüsrev Hattı dosyası: küçük çizildiği için büyüt
+  userFontName=fontName(buf);
+  userHusrev=[1241508,1675652].includes(buf.byteLength)||/h.srev/i.test(userFontName); // Hüsrev Hattı dosyası: küçük çizildiği için büyüt
+  userEkalem=/kalem/i.test(userFontName); // e-Kalem: Hüsrev üslubunda, Kur'an harekeleri yerli yerinde
   document.fonts.forEach(f=>{ if(f.family==='TilavetUser'||f.family==='"TilavetUser"') document.fonts.delete(f) });
-  const ff=new FontFace('TilavetUser',buf,userHusrev?{sizeAdjust:'205%'}:{}); await ff.load(); document.fonts.add(ff); userFontReady=true; renderFontHint();
+  const ff=new FontFace('TilavetUser',buf,userHusrev?{sizeAdjust:'205%'}:userEkalem?{sizeAdjust:'112%'}:{}); await ff.load(); document.fonts.add(ff); userFontReady=true; renderFontHint();
   if(st.font==='user'){ arCache.clear(); applyPrefs(); renderPage() } }
 /* Türk nesih fontu indikten sonra mushaf boyutunu yeniden ölç */
 try{ document.fonts.load('40px "TilavetNesih"','بسم').then(()=>{ fitMushaf() }) }catch(e){}
 function idb(){ return new Promise((ok,no)=>{ try{ const r=indexedDB.open('tilavet',1); r.onupgradeneeded=()=>r.result.createObjectStore('kv'); r.onsuccess=()=>ok(r.result); r.onerror=()=>no(r.error) }catch(e){ no(e) } }) }
 async function fontSave(buf,name){ const db=await idb(); await new Promise((ok,no)=>{ const t=db.transaction('kv','readwrite'); t.objectStore('kv').put({buf,name},'font'); t.oncomplete=ok; t.onerror=()=>no(t.error) }) }
 async function fontGet(){ const db=await idb(); return await new Promise((ok,no)=>{ const t=db.transaction('kv','readonly'); const r=t.objectStore('kv').get('font'); r.onsuccess=()=>ok(r.result||null); r.onerror=()=>no(r.error) }) }
-function renderFontHint(){ const h=document.getElementById('fontHint'); if(h) h.textContent=userFontReady?'Yüklediğiniz yazı tipi kullanılıyor. Değiştirmek için yeni dosya seçin.':'Kendi yazı tipinizi kullanmak için dosyanızı aşağıdan seçin.' }
+function renderFontHint(){ const h=document.getElementById('fontHint'); if(h) h.textContent=userFontReady?'Yüklediğiniz yazı tipi'+(userFontName?' ('+userFontName+')':'')+' kullanılıyor. Değiştirmek için yeni dosya seçin.':'Kendi yazı tipinizi kullanmak için dosyanızı aşağıdan seçin.' }
 (async function(){
   try{ const r=await fontGet(); if(r&&r.buf){ await loadUserFont(r.buf); return } }catch(e){}
   try{ const b=localStorage.getItem('tv-font'); if(!b) return; const bin=atob(b), u8=new Uint8Array(bin.length); for(let k=0;k<bin.length;k++) u8[k]=bin.charCodeAt(k);
