@@ -1288,15 +1288,48 @@ function startSurahMode(i,d,afterBas){
   const p=aud.play(); if(p&&p.catch) p.catch(e=>{ aud.muted=false; audErr() });
 }
 function markBasmala(s){ document.querySelectorAll('.basmala.playing').forEach(e=>e.classList.remove('playing')); const b=document.querySelector('.basmala[data-bs="'+s+'"]'); if(b){ b.classList.add('playing'); keepVisible(b) } }
+function warmAudio(u){ try{ fetch(u,{mode:'no-cors',credentials:'omit'}).catch(()=>{}) }catch(e){} } // sonraki kaydı önceden indir, geçişte bekleme olmasın
 function playBasmala(next){
-  P.mode='pre'; P.preNext=next; aud.dataset.src=''; markBasmala(A[P.i][0]);
+  P.mode='pre'; P.preNext=next; P.bw=-1; aud.dataset.src=''; markBasmala(A[P.i][0]);
+  P.bas=null; fetchSurah(1).then(x=>{ P.bas=x });
   aud.src='https://everyayah.com/data/'+st.reciter+'/001001.mp3';
-  const p=aud.play(); if(p&&p.catch) p.catch(()=>{ const n=P.preNext; P.preNext=null; if(n) n() });
+  warmAudio(audUrl(P.i));
+  const p=aud.play(); if(p&&p.catch) p.catch(()=>finishPre()); loop();
+}
+function basWord(k){
+  if(k===P.bw) return; P.bw=k;
+  document.querySelectorAll('.basmala .hl-word,.basmala-ok .hl-word').forEach(e=>e.classList.remove('hl-word'));
+  const x=k>0?realWords(0)[k-1]:null; if(!x) return;
+  const b=document.querySelector('.basmala[data-bs="'+A[P.i][0]+'"]'); if(!b) return;
+  const ok=b.nextElementSibling&&b.nextElementSibling.matches('.basmala-ok')?b.nextElementSibling:null;
+  [b,ok].forEach(el=>{ if(!el) return; [x.w,x.also].forEach(w=>{ if(w!=null) el.querySelectorAll('.w[data-w="'+w+'"]').forEach(e=>e.classList.add('hl-word')) }) });
+}
+function finishPre(){
+  if(P.mode!=='pre') return;
+  document.querySelectorAll('.basmala.playing').forEach(e=>e.classList.remove('playing'));
+  document.querySelectorAll('.basmala .hl-word,.basmala-ok .hl-word').forEach(e=>e.classList.remove('hl-word'));
+  const n=P.preNext; P.preNext=null; P.mode='ayah'; if(n) n();
+}
+function preUpdate(){
+  const d=aud.duration; if(!d||!isFinite(d)) return;
+  const m=P.bas&&P.bas.t[1];
+  if(m&&m.seg&&m.seg.length&&m.to>m.from){
+    const sc=d*1000/(m.to-m.from);
+    if(sc>0.6&&sc<1.6){
+      const ms=m.from+aud.currentTime*1000/sc; let k=-1;
+      for(const g of m.seg){ if(ms>=g[1]&&ms<g[2]){ k=g[0]; break } }
+      if(k<0&&ms>=m.seg[0][1]) k=P.bw; basWord(k);
+      // son kelime bittiyse kaydın sonundaki sessizliği bekleme
+      const last=m.seg[m.seg.length-1][2]; if(ms>=last+250){ finishPre(); return }
+    }
+  }
+  if(aud.currentTime>=d-0.06) finishPre();
 }
 function startAyahMode(i){
   P.mode='ayah'; aud.dataset.src=''; aud.src=audUrl(i);
   if(P.wk>1){ const wk=P.wk; P.wk=0; aud.addEventListener('loadedmetadata',()=>{ try{ aud.currentTime=wordTime(i,wk,aud.duration) }catch(e){} },{once:true}) }
   const p=aud.play(); if(p&&p.catch) p.catch(audErr); loop();
+  if(A[i+1]&&!(A[i+1][1]===1)) warmAudio(audUrl(i+1));
 }
 function enterAyah(i,first){
   P.i=i; playIdx=i; P.word=-1; P.lastW=null;
@@ -1333,7 +1366,8 @@ function keepVisible(el,force){
 }
 function loop(){ cancelAnimationFrame(P.raf); const tick=()=>{ if(!P.on) return; try{ update() }catch(e){} P.raf=requestAnimationFrame(tick) }; P.raf=requestAnimationFrame(tick) }
 function update(){
-  if(aud.paused||P.i<0||P.mode==='pre'||P.seeking) return;
+  if(P.mode==='pre'){ if(!aud.paused) preUpdate(); return }
+  if(aud.paused||P.i<0||P.seeking) return;
   const ms=aud.currentTime*1000;
   if(P.mode==='surah'){
     const t=P.data.t, cur=t[A[P.i][1]];
@@ -1411,12 +1445,12 @@ function audErr(){
 function showNoAudio(i){
   toast('Bu önizleme sayfasında ses çalınamıyor. Telefonunuza kurduğunuz Tilâvet uygulamasında dinleme ve kelime takibi çalışır. Şimdilik <a href="https://quran.com/'+A[i][0]+'/'+A[i][1]+'" target="_blank" rel="noopener">Quran.com’da dinleyin</a>.',9000);
 }
-aud.addEventListener('error',()=>{ if(aud.src&&aud.src.startsWith('data:')) return; if(P.mode==='pre'){ const n=P.preNext; P.preNext=null; if(n) n(); return } audErr() });
+aud.addEventListener('error',()=>{ if(aud.src&&aud.src.startsWith('data:')) return; if(P.mode==='pre'){ finishPre(); return } audErr() });
 aud.addEventListener('play',()=>{ setPlayBtn(true); requestWake() });
 aud.addEventListener('pause',()=>{ if(P.on) setPlayBtn(false); updatePlayer() });
 aud.addEventListener('ended',()=>{
   if(!P.on) return;
-  if(P.mode==='pre'){ document.querySelectorAll('.basmala.playing').forEach(e=>e.classList.remove('playing')); const n=P.preNext; P.preNext=null; if(n) n(); return }
+  if(P.mode==='pre'){ finishPre(); return }
   if(P.mode==='ayah'){
     if(--P.repLeft>0){ aud.currentTime=0; aud.play().catch(audErr); return }
     const n=P.i+1; if(n<A.length){ P.repLeft=st.rep; if(A[n][1]===1){ playFrom(n); return } enterAyah(n); startAyahMode(n); return }
