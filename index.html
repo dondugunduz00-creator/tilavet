@@ -196,7 +196,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .ar .w.hl-word{-webkit-text-stroke-color:var(--hl-word)}
 .ay.playing,.v.playing .ar{-webkit-text-stroke-color:var(--accent-soft)}
 @media (hover:hover){.ar .w:hover:not(.hl-word){-webkit-text-stroke-color:var(--accent-soft)}}
-.ar svg.hw,.preview-ar svg.hw{height:2.2em;vertical-align:-.66em;overflow:visible;display:inline-block}
+.basmala:has(svg.hw){white-space:nowrap}
+.ar svg.hw,.preview-ar svg.hw{height:2.2em;vertical-align:-.66em;overflow:visible;display:inline-block;direction:ltr;unicode-bidi:isolate}
+.ar svg.hw text,.preview-ar svg.hw text{direction:ltr;text-anchor:start}
 .ar svg.hw text,.preview-ar svg.hw text{fill:currentColor}
 .ar svg.hw .wq,.ar svg.hw .tn,.preview-ar svg.hw .wq,.preview-ar svg.hw .tn{fill:#c8312f}
 [data-theme="dark"] .ar svg.hw .wq,[data-theme="dark"] .ar svg.hw .tn{fill:#ff8a80}
@@ -1138,7 +1140,12 @@ function lnLayout(el){
   el.querySelectorAll('.ln:not(.ln-last)').forEach(l=>{ let sw=0; l.querySelectorAll('.tok').forEach(k=>sw+=k.getBoundingClientRect().width); const gp=parseFloat(l.style.columnGap)||0; const n=l.children.length; const need=sw+(n-1)*gp;
     if(need>W+1){ const f=(W-(n-1)*gp)/sw; l.style.fontSize=(parseFloat(l.style.fontSize)*f).toFixed(2)+'px' } });
 }
-function layoutAll(){ document.querySelectorAll('#pageEl .flow, #pageEl .ar.vt').forEach(el=>{ try{ lnLayout(el) }catch(e){} }); try{ applyHL(); if(typeof P!=='undefined'&&P.on) markPlaying() }catch(e){} }
+function fitBasmala(){ // Diyanet hattında besmele tek satıra sığsın
+  document.querySelectorAll('#pageEl .basmala').forEach(b=>{ b.style.fontSize=''; if(!b.querySelector('svg.hw')) return;
+    let w=0; b.querySelectorAll('.w').forEach(x=>w+=x.getBoundingClientRect().width); const W=b.clientWidth*0.96; const n=b.querySelectorAll('.w').length;
+    if(w>0&&b.scrollWidth>b.clientWidth+1||w+n*6>W){ const fs=parseFloat(getComputedStyle(b).fontSize); b.style.fontSize=(fs*Math.min(1,W/(w+n*6))).toFixed(1)+'px' } });
+}
+function layoutAll(){ try{ fitBasmala() }catch(e){} document.querySelectorAll('#pageEl .flow, #pageEl .ar.vt').forEach(el=>{ try{ lnLayout(el) }catch(e){} }); try{ applyHL(); if(typeof P!=='undefined'&&P.on) markPlaying() }catch(e){} }
 function selAy(i){ document.querySelectorAll('.ay.sel').forEach(x=>x.classList.remove('sel')); document.querySelectorAll('.ay[data-i="'+i+'"]').forEach(x=>x.classList.add('sel')); if(pdfShown!=null) pdfHlPaint() }
 
 function fitMushaf(){
@@ -2347,7 +2354,7 @@ function hatWordSVG(code,fid){
   return '<svg class="hw" viewBox="0 0 '+Math.round(w*100)+' 220" style="width:'+w.toFixed(2)+'em;font-family:'+(fid?'TvHatB':'TvHatA')+'" aria-hidden="true"><g style="font-size:100px">'+t+'</g></svg>';
 }
 function hatAyah(i){ // ayeti PDF'teki kelimelerle diz
-  const L=HATW[i]; if(L==null) return null; const ws=L.split('|'); const fid=A[i][2]===2&&A[i][0]===2?1:0;
+  const L=HATW[i]; if(L==null) return null; const ws=L.split('|'); const fid=0;
   const tx=[]; { const f=A[i][5]; let t=''; for(const x of f) if(typeof x==='string') t+=x; t.split(' ').filter(Boolean).forEach(w=>tx.push(w)) }
   return ws.map((c,w)=>'<span class="w" data-w="'+w+'" title="'+esc((tx[w]||'').replace(/[ۖ-ۜ‌]/g,''))+'">'+hatWordSVG(c,fid)+'</span>').join(' ');
 }
