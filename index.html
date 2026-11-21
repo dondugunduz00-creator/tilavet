@@ -637,7 +637,10 @@ return function(flat,surah,ayah){
       const prev=out[out.length-1]; const afterCons=prev&&!prev.sp&&!prev.v;
       cons=(wstart&&!joinNext)||firstPron?'':(u.sk||afterCons?"'":'');
       if(b==='ع'&&!wstart&&!u.sk&&prev&&prev.v) cons='';
-      const pf=U[words[wi][0]]; const wpos=words[wi].indexOf(i); if(isHam&&!u.sk&&(wpos===1||(wpos===2&&U[words[wi][1]].b==='ـ'))&&prev&&prev.v&&(('وفك'.includes(pf.b)&&pf.f)||(pf.b==='ب'&&pf.k)||(pf.b==='ل'&&(pf.f||pf.k))||('يه'.includes(pf.b)&&(pf.ms.includes(DAGGER)||(wpos===2&&U[words[wi][1]].ms.includes(DAGGER)))))){ push(' ',0,{sp:true}); cons='' }
+      const wu=words[wi].filter(j=>!(U[j].b==='ـ'&&!U[j].ms)), pf=U[wu[0]]; const wpos=wu.indexOf(i);
+      const spA=isHam&&!u.sk&&(wpos===1||(wpos===2&&U[wu[1]].b==='ـ'))&&prev&&prev.v&&(('وفك'.includes(pf.b)&&pf.f)||(pf.b==='ب'&&pf.k)||(pf.b==='ل'&&(pf.f||pf.k))||('يه'.includes(pf.b)&&(pf.ms.includes(DAGGER)||(wpos===2&&U[wu[1]].ms.includes(DAGGER)))));
+      const spB=isHam&&!u.sk&&prev&&prev.v&&wpos===3&&'وف'.includes(pf.b)&&pf.f&&'يه'.includes(U[wu[1]].b)&&U[wu[2]].b==='ـ'&&U[wu[2]].ms.includes(DAGGER);   // وَيَـٰٓـَٔادَمُ
+      if(spA||spB){ push(' ',0,{sp:true}); cons='' }
     } else if(b==='ا'){ cons='' }
     else if(b==='ٮ'){ cons='' }
     else cons=CONS[b]||'';
