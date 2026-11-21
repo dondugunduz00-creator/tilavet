@@ -337,6 +337,9 @@ body.has-player{--dock-max:20vh}
 #plRange.on{color:var(--accent);background:rgba(127,127,127,.15)}
 @media (max-width:420px){.hide-xs{display:none}}
 .basmala{text-wrap:balance}
+.ht-btn{margin-left:auto;gap:5px;padding:0 10px;font-weight:600;font-size:13px;font-variant-numeric:tabular-nums}.ht-btn svg{width:21px;height:21px}
+.ht-btn + .sz-btn{margin-left:0}
+@media (max-width:430px){.ht-pct{display:none}.ht-btn{padding:0 9px}}
 .sz-btn{margin-left:auto;gap:2px;padding:0 10px;font-weight:600}.sz-btn .sz-ar{font-family:var(--f-ar-ui,serif);font-size:19px;line-height:1;position:relative;top:-3px}.sz-btn .sz-tr{position:relative;top:1px}.sz-btn .sz-tr{font-size:13px;letter-spacing:-.02em}
 [dir=rtl] .sz-btn{margin-left:0;margin-right:auto}
 .sz-pop{position:fixed;z-index:70;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:grid;gap:8px;box-shadow:0 14px 40px -12px rgba(0,0,0,.35);min-width:250px}.sz-pop[hidden]{display:none}
@@ -413,6 +416,7 @@ body.has-player{--dock-max:20vh}
       <button class="ibtn" id="prevBtn" aria-label="Önceki sayfa" title="Önceki sayfa (→)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></button>
       <input class="pgnum hide-sm" id="pgInput" inputmode="numeric" aria-label="Sayfa numarası" title="Sayfa numarası yazıp Enter'a basın">
     </div>
+    <button class="ibtn ht-btn" id="htBtn" aria-label="Hatim takibi" title="Hatim takibi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M9 10.5l2 2 4-4"/></svg><span class="ht-pct" id="htPct"></span></button>
     <button class="ibtn sz-btn" id="szBtn" aria-label="Yazı boyutu" aria-expanded="false" title="Yazı boyutu"><span class="sz-ar">ع</span><span class="sz-tr">Aa</span></button>
     <div class="brk"></div>
     <div class="seg" role="group" aria-label="Okuma modu">
@@ -806,7 +810,8 @@ let read=new Set(store.get('read',[])), marks=store.get('marks',[]), judged=stor
 let readLog=store.get('readLog',{}), htOpen=null;
 const dayStr=(d=new Date())=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 function setRead(p,on){ if(on){ read.add(p); readLog[p]=dayStr() } else { read.delete(p); delete readLog[p] } }
-function saveRead(){ store.set('read',[...read]); store.set('readLog',readLog) }
+function htPctPaint(){ const e=document.getElementById('htPct'); if(e) e.textContent='%'+String(Math.round(read.size/604*1000)/10).replace('.',',') }
+function saveRead(){ store.set('read',[...read]); store.set('readLog',readLog); htPctPaint() }
 function nextUnread(){ // en son işaretlenen sayfadan sonraki ilk okunmamış sayfa
   let last=0, lt=''; for(const p of read){ const d=readLog[p]||''; if(d>lt||(d===lt&&p>last)){ lt=d; last=p } }
   for(let q=last+1;q<=604;q++) if(!read.has(q)) return q;
@@ -1038,7 +1043,7 @@ function renderDock(){ setTimeout(()=>{applyHL(); if(!$('#player').hidden) updat
   }
   const a=A[sel], m=meal(sel);
   d.innerHTML='<div class="dock-in" data-i="'+sel+'"><div class="dock-top"><span class="ref">'+a[0]+':'+a[1]+'</span><span>'+esc(S[a[0]-1][0])+'</span><span class="grow"></span>'+
-    '<button class="tbtn" data-step="-1" title="Önceki ayet (↑)">↑ Önceki</button><button class="tbtn" data-step="1" title="Sonraki ayet (↓)">↓ Sonraki</button><button class="tbtn" data-play="'+sel+'">▶ Dinle</button><button class="tbtn" data-range="'+sel+'" title="Aralık tekrarı"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 014-4h12M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 01-4 4H4"/></svg></button><button class="tbtn" data-report="'+sel+'" title="Hata bildir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V4m0 0h11l-2 4 2 4H5"/></svg></button><button class="tbtn" id="dockClose" aria-label="Kapat">✕</button></div>'+
+    '<button class="tbtn" data-step="-1" title="Önceki ayet (↑)" aria-label="Önceki ayet">↑<span class="hide-xs"> Önceki</span></button><button class="tbtn" data-step="1" title="Sonraki ayet (↓)" aria-label="Sonraki ayet">↓<span class="hide-xs"> Sonraki</span></button><button class="tbtn" data-play="'+sel+'">▶ Dinle</button><button class="tbtn" data-range="'+sel+'" title="Aralık tekrarı"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 014-4h12M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 01-4 4H4"/></svg></button><button class="tbtn" data-report="'+sel+'" title="Hata bildir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V4m0 0h11l-2 4 2 4H5"/></svg></button><button class="tbtn" id="dockClose" aria-label="Kapat">✕</button></div>'+
     '<div class="dock-body"><div class="okn">'+okAyah(sel)+'</div>'+(m?'<div class="meal">'+mealHTML(m)+'</div>':'')+'</div></div>';
 }
 function renderIntro(){
@@ -1746,6 +1751,7 @@ document.addEventListener('click',e=>{
   if((b=t.closest('[data-surah]'))){const fi=surahFirst[+b.dataset.surah]; goPage(A[fi][2]); startHint=fi; closeSide();return}
   if((b=t.closest('[data-ayah]'))){goAyah(+b.dataset.ayah);return}
   if((b=t.closest('[data-tab]'))){tab=b.dataset.tab;renderTab();return}
+  if(t.closest('#htBtn')){ tab='hatim'; htOpen=null; renderTab(); openSide(); return }
   if((b=t.closest('[data-rule]'))){const r=b.dataset.rule; const v=(r==='tk'||r==='tq')?r:+r; focusRule=focusRule===v?null:v; if(focusRule==='tk'&&!st.tk){st.tk=true;applyPrefs()} if(focusRule==='tq'&&!st.tq){st.tq=true;save();applyPrefs()} renderTab(); if(focusRule!=null) $('#main').dataset.fr=focusRule; else delete $('#main').dataset.fr; return}
   if((b=t.closest('[data-reveal]'))){const i=+b.dataset.reveal;revealed.add(i);const el=document.getElementById('v'+i);el.outerHTML=verseHTML(i);layoutAll();return}
   if((b=t.closest('[data-judge]'))){const i=+b.dataset.judge,v=+b.dataset.v; if(judged[i]===v) delete judged[i]; else judged[i]=v; store.set('judged',judged); document.getElementById('v'+i).outerHTML=verseHTML(i); layoutAll(); updateSum(); if(v===1&&judged[i]===1) revealNext(i); return}
@@ -1830,6 +1836,7 @@ window.addEventListener('hashchange',()=>{ if(Date.now()<navMute) return; const 
 })();
 /* ---------- boot ---------- */
 const hm=location.hash.match(/^#sayfa-(\d+)$/); if(hm) st.page=Math.max(1,Math.min(604,+hm[1]));
+htPctPaint();
 const fs=document.createElement('style');let css='';for(let k=1;k<=18;k++)css+='[data-fr="'+k+'"] .okn .r'+k+',[data-fr="'+k+'"] .ar .r'+k+'{color:var(--t'+k+')!important;background:var(--hl);border-radius:4px;-webkit-text-stroke-color:var(--hl)}';css+='[data-fr="tk"] .okn .tk,[data-fr="tk"] .ar .tk{color:var(--tk)!important;background:var(--hl)}[data-fr="tq"] .okn .tq,[data-fr="tq"] .ar .tq{color:var(--tq)!important;background:var(--hl)}';fs.textContent=css;document.head.appendChild(fs);
 applyPrefs(); renderPage(); renderTab();
 })();
