@@ -557,7 +557,8 @@ return function(flat,surah,ayah){
   const isSekte=i=>{ if(!U[i]||!U[i].sekte) return false; let j=i+1; while(U[j]&&skZ(U[j].b)) j++; return !U[j]||U[j].b===' ' };
   const sektePrev=i=>{ let j=i-1; while(j>=0&&skZ(U[j].b)) j--; return j>=0&&isSekte(j) };
   const nextPron=(i)=>{ if(isSekte(i)) return -1; for(let j=i+1;j<U.length;j++){const u=U[j]; if(u.b===LAZIM) return -1; if(u.b===' '||WAQF.includes(u.b)||SKIP.includes(u.b)) continue; if(P(u.c)===3||P(u.c)===1||P(u.c)===2) continue; if(u.b==='ـ') continue; if('اىٮ'.includes(u.b)&&!(u.f||u.k||u.d||u.sk||u.sh||u.tn)&&!u.ms.includes(HAMA)) continue; return j} return -1};
-  const allahNext=(i)=>{const j=nextPron(i); if(j<0) return false; const a=U[j],b2=U[j+1]; return a.b==='ل'&&((a.sh&&b2&&b2.b==='ه')||(!a.ms&&b2&&b2.b==='ل'&&b2.sh&&U[j+2]&&U[j+2].b==='ه'))};
+  const isAllahW=wi=>wi>=0&&!!words[wi]&&/^[وفبلتكأءاٱ]*لله(م)?$/.test(words[wi].map(j=>U[j].b).join('').replace(/[^ء-يٱ]/g,''));
+  const allahNext=(i)=>{const j=nextPron(i); if(j<0) return false; const a=U[j],b2=U[j+1]; return isAllahW(wordOf[j])&&a.b==='ل'&&((a.sh&&b2&&b2.b==='ه')||(!a.ms&&b2&&b2.b==='ل'&&b2.sh&&U[j+2]&&U[j+2].b==='ه'))};
   // durunca kelime sonu: tenvin üstün → â (ة → h), öteki tenvin ve son kısa ünlü okunmaz
   let stopAt=-1;
   const stopForm=(baseCh,hz)=>{
@@ -664,7 +665,8 @@ return function(flat,surah,ayah){
     if(b==='م'&&u.sk&&P(u.c)===14){}
     if(cons&&!isHam&&b!=='ع'&&!(u.f||u.k||u.d||u.tn||u.sk||u.sh)&&!u.iq){ const j=nextPron(i); if(j>=0&&U[j].sh&&CONS[U[j].b]&&!(P(u.c)===10)){ cons=CONS[U[j].b]; U[j].half=true } }
     if(u.sk&&b==='م'){ const j=nextPron(i); if(j>=0&&U[j].sh&&U[j].b==='م') U[j].half=true }
-    const isAllahL=b==='ل'&&u.sh&&U[i+1]&&U[i+1].b==='ه'&&(pu&&(pu.b==='ل'||pu.b==='ٱ'));
+    const isAllahL=b==='ل'&&u.sh&&U[i+1]&&U[i+1].b==='ه'&&(pu&&(pu.b==='ل'||pu.b==='ٱ'))&&isAllahW(wi);   // ٱللَّهْوِ / ٱللَّهَبِ değil
+    const o0=out.length, allahHv=isAllahL&&(()=>{ const v=lastVowelAny(); return !v||!/[iıî]$/.test(v.t) })();   // lafza-i celâl: esreden sonra ince, öteki hâllerde kalın
     // ünsüzü yaz
     if(afterLazim&&cons){ if([10,11,12,13,14,15,16,17].includes(P(u.c))) u.c=u.c&~31; if(u.sh&&wstart) u.half=true; afterLazim=false }
     if(u.sh&&!u.half&&wstart&&cons){ let k=out.length-1; while(k>=0&&(out[k].sp||out[k].waqf)) k--; const pt=out[k]; if(pt&&!pt.v&&(pt.t==='n'||pt.t===cons)&&'منيولر'.includes(b)){ pt.t=cons; u.half=true } }
@@ -686,7 +688,7 @@ return function(flat,surah,ayah){
     const heavyR=(b==='ر'&&(u.c&32))||isAllahL&&!(pu&&pu.k);
     if(u.f||u.tn==='a'){
       let v=(HEAVY.includes(b)||heavyR||(u.c&32)||(nx&&HEAVY.includes(nx.b)&&(nx.sk||!(nx.f||nx.k||nx.d||nx.tn||nx.sh||nx.ms.includes(DAGGER))&&wordOf[i+1]===wi))||(nx&&nx.b==='ر'&&nx.sk&&(nx.c&32)&&U[i+2]&&wordOf[i+2]===wi&&'ضصطظقخغ'.includes(U[i+2].b))||allahNext(i))?'a':'e';
-      if(isAllahL){ push('â',u.vc||u.c,{v:'l',fixed:true}); }
+      if(isAllahL){ push('â',u.vc||u.c,{v:'l',fixed:true}); if(allahHv) for(let k=o0-1;k<out.length;k++){ const o=out[k]; if(o&&/^(l+|â)$/.test(o.t)&&(k>=o0||o.t==='l')) o.c=((o.c||0)&~64)|32 } }
       else push(v,u.vc,{v:'s'});
     } else if(u.k||u.tn==='i'){ push(HEAVYI.includes(b)?'ı':'i',u.vc,{v:'s'}) }
     else if(u.d||u.tn==='u'){ push('u',u.vc,{v:'s'}) }
@@ -766,7 +768,7 @@ const RULES=[null,
  ['Med-i munfasıl','Med harfi bir kelimenin sonunda, hemze sonraki kelimenin başındadır; birleştirerek okurken 4–5 hareke uzatılır. Kelimede durulursa med-i tabiî olur.','بِمَآ أُنزِلَ'],
 ];
 const GROUPS=[['Okunmayan / bağlanan',[1,2,3]],['Medler (uzatma)',[4,6,18,7,5]],['Nûn, mîm ve ğunne',[9,10,11,12,13,14,15]],['Diğer',[8,16,17]]];
-const XRULES={tk:['Kalın harf (tefhîm)','Ağız doldurularak kalın okunur: ص ض ط ظ غ ق خ ve kalın okunan râ.'],tq:['İnce râ (terkîk)','Râ harfi bu yerde ince okunur.']};
+const XRULES={tk:['Kalın harf (tefhîm)','Ağız doldurularak kalın okunur: ص ض ط ظ غ ق خ, kalın okunan râ ve üstün/ötreden sonra Allah lafzının lâmı.'],tq:['İnce râ (terkîk)','Râ harfi bu yerde ince okunur.']};
 
 /* Türk mushafı yazımı: hemze-i vasl ve hemzeli elifler düz elif, sıla harfleri Türk usulü işaretle */
 /* Türk mushafı (Hasenat/Diyanet) elif yazımı: Medine'de üstün elif (ـٰ) veya tek hemze (ء / ـٔ) olup Türk mushafında
@@ -984,8 +986,45 @@ function ayahAr(i){
   const f=A[i][5]; let chars=[];
   for(let k=0;k<f.length;k++){ const t=f[k]; let c=0; if(typeof f[k+1]==='number'){c=f[k+1];k++} for(const ch of t) chars.push([ch,c]) }
   if(st.imla==='tr') chars=trTurk(i,trImla(trAlef(i,chars))); else chars=chars.map(x=>x[0]==='ٮ'?['ى',x[1]]:x);
-  chars=arRaStop(chars);
+  chars=arRaStop(chars); chars=arAllah(i,chars); chars=arLazim(chars); chars=arNida(chars);
   const h=spanify(chars); arCache.set(key,h); return h;
+}
+// nidâ yâ'sı / tenbîh hâ'sı + hemze (يَـٰٓأَيُّهَا ، هَـٰٓؤُلَآءِ): okunuştaki gibi munfasıl
+function arNida(chars){
+  let out=null, ws=0;
+  const RE1=/^((?:[وف]\u064E)?[يه]\u064E?ـ*\u0670\u0653)(?=ـ*[ءأإؤئ]|ـ*\u064E?[\u0654\u0655]|ـ*\u064E\u0654|ا[\u064E\u064F\u0650]|اٰ)/, RE2=/^((?:[وف]\u064E)?[يه]\u064E(?:آ|ا\u0653))(?=ا[\u064E\u064F\u0650]|ا\u0670)/;   // هَآؤُمُ (hâ'umu) muttasıl kalır
+  for(let k=0;k<=chars.length;k++){ if(k<chars.length&&chars[k][0]!==' ') continue;
+    const idx=[]; let s=''; for(let q=ws;q<k;q++){ const c=chars[q][0]; if(c.length===1){ s+=c; idx.push(q) } }
+    const m=RE1.exec(s)||RE2.exec(s);
+    if(m) for(let t=0;t<m[1].length;t++){ const q=idx[t], c=chars[q][1]; if((c&31)===6){ if(!out) out=chars.slice(); out[q]=[chars[q][0],(c&~31)|18] } }
+    ws=k+1 }
+  return out||chars;
+}
+// vakf-ı lâzımda durulur: önceki kelimenin son harfindeki ihfâ/idğâm/iklâb rengi ve sonraki kelimenin idğamla gelen şeddesinin rengi kalkar, munfasıl tabiî olur
+function arLazim(chars){
+  const isL=c=>c.length===1&&/[ء-يٱٮ]/.test(c), P=c=>c&31;
+  let out=null;
+  for(let k=0;k<chars.length;k++){ const ch=chars[k][0]; if(!(ch==='ۘ'||ch==='\uE000م')) continue;
+    if(!out) out=chars.slice();
+    let s=k-1; while(s>=0&&out[s][0]!==' ') s--; s++;
+    let lastL=-1; for(let q=s;q<k;q++) if(isL(out[q][0])&&!((out[q][0]==='ا'||out[q][0]==='ى')&&lastL>=0&&!(out[q+1]&&/[\u064B-\u0652]/.test(out[q+1][0])))) lastL=q;   // tenvin elifi değil, tenvinli harf
+    if(lastL>s&&out[lastL][0]==='ء'){ for(let q=lastL-1;q>=s;q--) if(isL(out[q][0])){ lastL=q; while(lastL-1>s&&!isL(out[lastL-1][0])) lastL--; break } }   // شَىْءٍ: renk hemzeden önceki harfte (ve onun önündeki harekede)
+    for(let q=s;q<k;q++){ const c=out[q][1]; if(P(c)===18) out[q]=[out[q][0],(c&~31)|4]; else if(q>=lastL&&lastL>=0&&P(c)>=10&&P(c)<=17) out[q]=[out[q][0],c&~31] }
+    let n=k+1; while(n<out.length&&out[n][0]!==' ') n++; n++; let first=-1;
+    for(let q=n;q<out.length&&out[q][0]!==' ';q++){ if(isL(out[q][0])){ if(first>=0) break; first=q } if(first>=0){ const c=out[q][1]; if(P(c)>=9&&P(c)<=17) out[q]=[out[q][0],c&~31] } } }
+  return out||chars;
+}
+// lafza-i celâl: kalın okunduğu yerde lâmları kalın harf rengiyle (karar okunuşla aynı kaynaktan)
+function arAllah(i,chars){
+  let heavyW=null;
+  const out=chars.slice(); let w=0, start=0;
+  const flush=(end)=>{ const idx=[]; let sk=''; for(let k=start;k<end;k++){ const c=out[k][0]; if(c.length===1&&/[ء-يٱ]/.test(c)){ sk+=c; idx.push(k) } }
+    if(/^[وفبلتكأءاٱ]*لله(م)?$/.test(sk)){
+      if(!heavyW){ heavyW=new Set(); try{ for(const [t,c,ww] of okTj(i)) if(ww>=0&&(c&32)&&/^(l+|â|l+â|Al|A)$/.test(t)) heavyW.add(ww) }catch(e){} }
+      if(heavyW.has(w)){ const ls=idx.filter(k=>out[k][0]==='ل').slice(-2); for(const k of ls){ for(let q=k;q<end;q++){ if(q>k&&out[q][0].length===1&&/[ء-يٱ]/.test(out[q][0])) break; out[q]=[out[q][0],(out[q][1]&~64)|32] } } } } };
+  for(let k=0;k<out.length;k++){ if(out[k][0]===' '){ flush(k); w++; start=k+1 } }
+  flush(out.length);
+  return out;
 }
 // ayet sonunda durulan râ: kalınlığı durak hâline göre (kadîr ince, en nâr / el fecr kalın)
 function arRaStop(chars){
