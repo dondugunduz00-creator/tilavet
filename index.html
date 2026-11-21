@@ -684,10 +684,26 @@ const GROUPS=[['Okunmayan / bağlanan',[1,2,3]],['Medler (uzatma)',[4,6,18,7,5]]
 const XRULES={tk:['Kalın harf (tefhîm)','Ağız doldurularak kalın okunur: ص ض ط ظ غ ق خ ve kalın okunan râ.'],tq:['İnce râ (terkîk)','Râ harfi bu yerde ince okunur.']};
 
 /* Türk mushafı yazımı: hemze-i vasl ve hemzeli elifler düz elif, sıla harfleri Türk usulü işaretle */
+/* Türk mushafı: ayet başındaki vasıl elifi, başlarken okunduğu harekeyle yazılır (اَلْحَمْدُ، اِهْدِنَا، اُدْعُوا) */
+const WASL_KASRA=new Set(['امشوا','اقضوا','ابنوا','ائتوا','امضوا','امرؤ','امرا','اتوا']);
+function waslVowel(chars,k){
+  const L=/[\u0621-\u064A]/, MK=/[\u064B-\u065F\u0670\u06D6-\u06ED]/;
+  const lets=[]; for(let q=k+1;q<chars.length&&chars[q][0]!==' ';q++){ const x=chars[q][0]; if(L.test(x)) lets.push({b:x,m:''}); else if(MK.test(x)&&lets.length) lets[lets.length-1].m+=x }
+  const sk='ا'+lets.map(x=>x.b).join('').replace(/[ٓ]/g,'');
+  const c1=lets[0]||{b:'',m:''}, c2=lets[1]||{b:'',m:''};
+  const SUK=/[\u0652\u06E1]/, SH=/\u0651/;
+  if(c1.b==='ل'&&(SH.test(c1.m)||SH.test(c2.m)||(SUK.test(c1.m)&&!(c2.b==='ت'&&!SH.test(c2.m))))) return 'َ';   // el- takısı
+  if([...WASL_KASRA].some(w=>sk.startsWith(w))) return 'ِ';
+  if(/\u064F/.test(c2.m)&&!/^ا(بن|سم|مر)/.test(sk)) return 'ُ';   // اُدْعُ، اُنْظُرْ ama اِبْنُ، اِسْمُ
+  return 'ِ';
+}
 function trImla(chars){
   const o=[];
+  let seen=false;
   for(let k=0;k<chars.length;k++){
     const ch=chars[k][0], c=chars[k][1], nx=chars[k+1]?chars[k+1][0]:'';
+    if(ch==='ٱ'&&!seen){ seen=true; o.push(['ا',c]); o.push([waslVowel(chars,k),c]); continue }
+    if(/[\u0621-\u064A\u0671]/.test(ch)) seen=true;
     if(ch==='ٱ'||ch==='إ'){o.push(['ا',c]);continue}
     if(ch==='ٮ'){o.push(['ى',c]);continue}
     if(ch==='\u200C') continue;
