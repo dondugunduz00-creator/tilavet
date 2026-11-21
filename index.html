@@ -1009,7 +1009,7 @@ function renderPage(){
     h+='</div>';
   }
   const nDone=list.filter(i=>judged[i]===1).length, nAgain=list.filter(i=>judged[i]===2).length;
-  h+='<div class="pfoot"><button class="done-btn'+(read.has(p)?' is-done':'')+'" id="doneBtn">'+(read.has(p)?'✓ Bu sayfayı okudunuz':'Sayfayı okudum, işaretle')+'</button>'+
+  h+='<div class="pfoot"><button class="done-btn'+(read.has(p)?' is-done':'')+'" id="doneBtn">'+(read.has(p)?'✓ Bu sayfayı okudunuz':'Okudum, sonraki sayfaya geç →')+'</button>'+
     (st.mode==='check'?'<span class="check-sum">'+nDone+' doğru · '+nAgain+' tekrar · '+(list.length-nDone-nAgain)+' bekliyor</span>':'')+
     '<div class="pgnav"><button class="ibtn" data-go="'+(p-1)+'" '+(p<=1?'disabled':'')+'>Önceki sayfa</button><button class="ibtn" data-go="'+(p+1)+'" '+(p>=604?'disabled':'')+'>Sonraki sayfa</button></div></div>';
   $('#pageEl').innerHTML=h;
@@ -1144,6 +1144,27 @@ function snippet(t,q){
 
 /* ---------- navigation ---------- */
 let startHint=-1;
+function curAyah(){ // ekranda okunmakta olan ayet: başı ekranın üstünde (ya da hemen altında) olan ilk ayet
+  if(P.on&&P.i>=0&&A[P.i][2]===st.page) return P.i;
+  const top=($('.bar')?$('.bar').getBoundingClientRect().bottom:0), half=top+(innerHeight-top)*0.45;
+  const m=st.mode==='mushaf', first={}, last={}, order=[];
+  document.querySelectorAll(m?'#pageEl .ay[data-i]':'#pageEl .v[data-i]').forEach(e=>{ const i=+e.dataset.i, r=e.getBoundingClientRect();
+    if(!(i in first)){ first[i]=r; order.push(i) } last[i]=r });
+  for(const i of order){
+    if(last[i].bottom<=top+6) continue;              // tamamen yukarıda kalmış
+    if(first[i].top>=top-12) return i;               // başı görünüyor
+    if(last[i].bottom>half) return i;                // uzun ayetin ortasındasınız
+  }
+  return sel>=0&&A[sel][2]===st.page?sel:pages[st.page][0];
+}
+function scrollToAyah(i,smooth){
+  if(i==null||!A[i]||A[i][2]!==st.page) return;
+  const go=()=>{ const el=document.querySelector(st.mode==='mushaf'?'#pageEl .ay[data-i="'+i+'"]':'#v'+i); if(!el) return;
+    if(i===pages[st.page][0]){ scrollTo({top:0,behavior:smooth?'smooth':'auto'}); return }
+    const top=($('.bar')?$('.bar').getBoundingClientRect().bottom:0)+10; scrollBy({top:el.getBoundingClientRect().top-top,behavior:smooth?'smooth':'auto'}) };
+  requestAnimationFrame(()=>setTimeout(()=>{ go(); setTimeout(go,180) },30));
+}
+let posT=0; addEventListener('scroll',()=>{ clearTimeout(posT); posT=setTimeout(()=>{ const i=curAyah(); if(i!==st.pos){ st.pos=i; save() } },350) },{passive:true});
 function goPage(p,keepSel){p=Math.max(1,Math.min(604,p|0)); if(!keepSel){ startHint=-1; if(P.on&&A[P.i]&&A[P.i][2]!==p) stopAud() } if(p!==st.page){st.page=p; if(!keepSel) sel=-1; revealed.clear()} save(); renderPage(); if(tab==='hatim'||tab==='cuz'||tab==='sure') renderTab(); if(!keepSel) window.scrollTo({top:0})}
 function goAyah(i){ if(P.on&&P.i!==i) stopAud(); goPage(A[i][2],true); sel=i; renderPage();
   requestAnimationFrame(()=>{const el=st.mode==='mushaf'?document.querySelector('.ay[data-i="'+i+'"]'):document.getElementById('v'+i); if(el){el.scrollIntoView({block:'center',behavior:'smooth'}); if(st.mode!=='mushaf'){el.style.background='var(--hl)';setTimeout(()=>el.style.background='',1400)}}});
@@ -1555,7 +1576,14 @@ function startAyahMode(i){
   const p=aud.play(); if(p&&p.catch) p.catch(audErr); loop();
   if(A[i+1]&&!(A[i+1][1]===1)) warmAudio(audUrl(i+1));
 }
+function heardPage(p){
+  if(read.has(p)) return; setRead(p,true); saveRead();
+  if(tab==='hatim'&&$('#side').classList.contains('open')) renderTab();
+  toast('Sayfa '+p+' dinlendi, hatime işlendi ('+read.size+' / 604)',2200);
+}
 function enterAyah(i,first){
+  const prev=P.heard; P.heard=i;
+  if(prev!=null&&i===prev+1&&A[prev][2]!==A[i][2]) heardPage(A[prev][2]);   // sayfanın son ayeti bitti
   P.i=i; playIdx=i; P.word=-1; P.lastW=null;
   if(A[i][2]!==st.page) goPage(A[i][2],true);
   sel=i;
@@ -1635,7 +1663,7 @@ function setWord(k){
     const dw=document.querySelector('.dock-in[data-i="'+P.i+'"] .okn .w[data-w="'+x.w+'"]'), db=document.querySelector('.dock-body'); if(dw&&db){ const a=dw.getBoundingClientRect(), b=db.getBoundingClientRect(); if(a.top<b.top||a.bottom>b.bottom) db.scrollTop+=a.top-b.top-8 } }
 }
 function stopAud(){
-  P.on=false; P.mode=null; P.preNext=null; P.range=null; P.seeking=false; aud.muted=false; cancelAnimationFrame(P.raf); try{ aud.pause() }catch(e){}
+  P.on=false; P.mode=null; P.preNext=null; P.range=null; P.heard=null; P.seeking=false; aud.muted=false; cancelAnimationFrame(P.raf); try{ aud.pause() }catch(e){}
   document.querySelectorAll('.basmala.playing').forEach(e=>e.classList.remove('playing'));
   playIdx=-1; setPlayBtn(false); markPlaying(); hidePlayer(); releaseWake();
   if(HL&&HL.w!=null){ HL={i:HL.i,w:null,m:null}; applyHL() }
@@ -1688,6 +1716,7 @@ aud.addEventListener('ended',()=>{
   } else {
     const n=P.i+1; if(n<A.length){ playFrom(n); return }   // sonraki sure
   }
+  if(P.i===A.length-1&&P.heard===P.i) heardPage(604);
   stopAud();
 });
 /* alt oynatıcı çubuğu */
@@ -1745,7 +1774,7 @@ document.addEventListener('click',e=>{
   }
   if((b=t.closest('.v[data-i]'))&&!t.closest('button')){ const i=+b.dataset.i; if(!HL||HL.i!==i){HL={i,w:null,m:null};applyHL()} }
   if((b=t.closest('.ay[data-i]'))){sel=+b.dataset.i;HL={i:sel,w:null,m:null};selAy(sel);renderDock();applyHL();return}
-  if((b=t.closest('.seg [data-mode]'))){st.mode=b.dataset.mode;save();revealed.clear();renderPage();return}
+  if((b=t.closest('.seg [data-mode]'))){ if(b.dataset.mode===st.mode) return; const at=curAyah(); st.mode=b.dataset.mode; st.pos=at; save(); revealed.clear(); renderPage(); scrollToAyah(at); if(P.on) markPlaying(); return }
   if((b=t.closest('[data-go]'))){goPage(+b.dataset.go);return}
   if((b=t.closest('[data-page]'))){goPage(+b.dataset.page);closeSide();return}
   if((b=t.closest('[data-surah]'))){const fi=surahFirst[+b.dataset.surah]; goPage(A[fi][2]); startHint=fi; closeSide();return}
@@ -1767,7 +1796,9 @@ document.addEventListener('click',e=>{
   if((b=t.closest('[data-rp]'))){ const q=+b.dataset.rp; setRead(q,!read.has(q)); saveRead(); renderTab(); if(q===st.page) renderPage(); return }
   if((b=t.closest('[data-jall]'))){ const j=+b.dataset.jall, p0=juzFirstPage[j], e=j<30?juzFirstPage[j+1]-1:604; let all=true; for(let q=p0;q<=e;q++) if(!read.has(q)) all=false; for(let q=p0;q<=e;q++) setRead(q,!all); saveRead(); renderTab(); renderPage(); return }
   if(t.closest('#htNew')){ st.hatims=(st.hatims||0)+1; read=new Set(); readLog={}; if(st.planDays) st.planStart=dayStr(); save(); saveRead(); renderTab(); renderPage(); toast('Yeni hatim başladı. Hayırlı olsun.'); return }
-  if(t.closest('#doneBtn')){const p=st.page; setRead(p,!read.has(p)); saveRead(); renderPage(); if(tab==='hatim'||tab==='cuz') renderTab(); if(read.has(p)) toast('Sayfa '+p+' hatim ilerlemenize eklendi. Toplam '+read.size+' / 604'); return}
+  if(t.closest('#doneBtn')){const p=st.page; setRead(p,!read.has(p)); saveRead(); if(tab==='hatim'||tab==='cuz') renderTab();
+    if(read.has(p)){ toast('Sayfa '+p+' hatime işlendi ('+read.size+' / 604)'); if(p<604){ goPage(p+1); return } }
+    renderPage(); return}
   if(t.closest('#resetHatim')){$('#resetConfirm').innerHTML='<div class="hint">Okunan sayfa işaretleri silinecek. Emin misiniz?</div><div style="display:flex;gap:8px;padding:0 4px 12px"><button class="small-btn" id="resetYes">Evet, sıfırla</button><button class="small-btn" id="resetNo">Vazgeç</button></div>';return}
   if(t.closest('#resetYes')){read=new Set();readLog={};saveRead();renderTab();renderPage();return}
   if(t.closest('#resetNo')){$('#resetConfirm').innerHTML='';return}
@@ -1839,6 +1870,7 @@ const hm=location.hash.match(/^#sayfa-(\d+)$/); if(hm) st.page=Math.max(1,Math.m
 htPctPaint();
 const fs=document.createElement('style');let css='';for(let k=1;k<=18;k++)css+='[data-fr="'+k+'"] .okn .r'+k+',[data-fr="'+k+'"] .ar .r'+k+'{color:var(--t'+k+')!important;background:var(--hl);border-radius:4px;-webkit-text-stroke-color:var(--hl)}';css+='[data-fr="tk"] .okn .tk,[data-fr="tk"] .ar .tk{color:var(--tk)!important;background:var(--hl)}[data-fr="tq"] .okn .tq,[data-fr="tq"] .ar .tq{color:var(--tq)!important;background:var(--hl)}';fs.textContent=css;document.head.appendChild(fs);
 applyPrefs(); renderPage(); renderTab();
+if(st.pos!=null&&A[st.pos]&&A[st.pos][2]===st.page) setTimeout(()=>scrollToAyah(st.pos),250);   // kaldığınız ayetten devam
 })();
 </script>
 
