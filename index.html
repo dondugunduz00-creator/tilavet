@@ -610,7 +610,7 @@ return function(flat,surah,ayah){
     const wi=wordOf[i], wstart=words[wi][0]===i;
     if(b==='ـ'&&!u.ms.includes(HAMA)){ if(/[ٰۧۦۥ]/.test(u.ms)) lengthen(u.c); continue}
     if(b==='ا'&&u.ms.includes('\u06E0')&&wi===words.length-1){ lengthen((u.c&96)|4); continue }
-    if(P(u.c)===3 || (b==='ا'&&(u.sk||u.ms.includes('\u06E0')))){ if(u.ms.includes(DAGGER)||u.ms.includes(SHYEH)) lengthen((u.c&96)|4); continue}
+    if(P(u.c)===3 || (b==='ا'&&(u.sk||u.ms.includes('\u06E0')))){ if(u.ms.includes(DAGGER)||u.ms.includes(SHYEH)){ const dm=u.m.find(x=>(x[0]===DAGGER||x[0]===MADDAH||x[0]===SHYEH)&&P(x[1])); lengthen(dm?dm[1]:(u.c&96)|4) } continue}   // ٱلرِّبَوٰٓاْ إِن: munfasıl
     // hemze-i vasl
     if(b==='ٱ'){
       let wk=out.length-1; while(wk>=0&&out[wk].sp) wk--; let afterWaqf=wk>=0&&!!out[wk].waqf;
@@ -668,7 +668,7 @@ return function(flat,surah,ayah){
     const isAllahL=b==='ل'&&u.sh&&U[i+1]&&U[i+1].b==='ه'&&(pu&&(pu.b==='ل'||pu.b==='ٱ'))&&isAllahW(wi);   // ٱللَّهْوِ / ٱللَّهَبِ değil
     const o0=out.length, allahHv=isAllahL&&(()=>{ const v=lastVowelAny(); return !v||!/[iıî]$/.test(v.t) })();   // lafza-i celâl: esreden sonra ince, öteki hâllerde kalın
     // ünsüzü yaz
-    if(afterLazim&&cons){ if([10,11,12,13,14,15,16,17].includes(P(u.c))) u.c=u.c&~31; if(u.sh&&wstart) u.half=true; afterLazim=false }
+    if(afterLazim&&cons){ if(u.sh&&wstart){ if([9,10,11,12,13,14,15,16,17].includes(P(u.c))) u.c=u.c&~31; u.half=true } afterLazim=false }   // yalnız idğamla gelen şedde (44:7 'in kuntum' ihfâsı kalır)
     if(u.sh&&!u.half&&wstart&&cons){ let k=out.length-1; while(k>=0&&(out[k].sp||out[k].waqf)) k--; const pt=out[k]; if(pt&&!pt.v&&(pt.t==='n'||pt.t===cons)&&'منيولر'.includes(b)){ pt.t=cons; u.half=true } }
     if(firstPron&&u.sh) u.half=true;
     if(b==='ع'&&u.sh&&!u.half&&!cons) cons="'";
@@ -704,7 +704,7 @@ return function(flat,surah,ayah){
     }
     if(u.ms.includes(DAGGER)&&u.ms.includes(HAMA)){ push("'",u.c) }
     else if(u.ms.includes(DAGGER)) lengthen(u.c);
-    if(u.ms.includes(SWAW)||u.ms.includes(SYEH)){ lengthen(u.c); const l=lastVowel(); if(l) l.sil=true }
+    if(u.ms.includes(SWAW)||u.ms.includes(SYEH)){ const sm=u.m.find(x=>x[0]===SWAW||x[0]===SYEH); lengthen(sm&&P(sm[1])?sm[1]:u.c); const l=lastVowel(); if(l) l.sil=true }   // sıla: işaretin kodu (munfasıl / ârız)
   }
   // durak (ayet sonu)
   while(out.length&&(out[out.length-1].sp||out[out.length-1].waqf)) out.pop();
@@ -828,7 +828,7 @@ function trImla(chars){
     o.push([ch,c]);
   }
   const ek=st.font==='user'&&userEkalem;
-  if(ek){ for(let k=0;k<o.length-1;k++){ if(o[k][0]==='ِ'&&o[k+1][0]==='ۦ'){ o[k]=['ٖ',o[k][1]]; o.splice(k+1,1) } } } // بِهِۦ → بِهٖ
+  if(ek){ for(let k=0;k<o.length-1;k++){ if(o[k][0]==='ِ'&&o[k+1][0]==='ۦ'){ o[k]=['ٖ',(o[k+1][1]&31)?o[k+1][1]:o[k][1]]; o.splice(k+1,1) } } } // بِهِۦ → بِهٖ
   return trImla2(o, st.font==='sch'||st.font==='noto'||st.font==='amiri'||ek);
 }
 /* Türk mushafı yazım alışkanlıkları: okunmayan harfte sükûn yok, ءَا → اٰ, Allah lafzında ّٰ, uzun î'de kesre-i işbâ */
@@ -854,7 +854,7 @@ function trImla2(ch, rich){
       let j=k+2; while(ch[j]&&!L.test(ch[j][0])&&ch[j][0]!==' ') j++;
       const endW=!ch[j]||ch[j][0]===' ', nxt=endW&&ch[j]?ch[j+1]:null, wasl=nxt&&(nxt[1]&31)===1;
       o.push([rich&&!wasl?'ٖ':'ِ',code]); o.push(['ي',n1[1]]); k++; continue }
-    if(c==='ِ'&&n1&&n1[0]==='ۦ'&&rich){ o.push(['ٖ',code]); k++; continue }   // بِهِۦ → بِهٖ
+    if(c==='ِ'&&n1&&n1[0]==='ۦ'&&rich){ o.push(['ٖ',(n1[1]&31)?n1[1]:code]); k++; continue }   // بِهِۦ → بِهٖ
     o.push([c,code]);
   }
   return o;
@@ -894,7 +894,7 @@ function trTurk(i,ch){
       let nk=k+1; while(W[nk]&&W[nk].c==='ـ'&&!W[nk].m.length) nk++; const n=W[nk];
       // ـَٔا → اٰ
       const pre=W.slice(0,k).every(x=>'اٱبفلوكيـ'.includes(x.c));
-      if((pre||!(p&&has(p,'ِ')))&&u.c==='ـ'&&has(u,'ٔ')&&has(u,'َ')&&n&&n.c==='ا'&&!n.m.filter(x=>x[0]!=='ٓ').length){ const md=n.m.filter(x=>x[0]==='ٓ'); u.c='ا'; u.m=[['ٰ',u.code]].concat(md); W.splice(k+1,nk-k); continue }
+      if((pre||!(p&&has(p,'ِ')))&&u.c==='ـ'&&has(u,'ٔ')&&has(u,'َ')&&n&&n.c==='ا'&&!n.m.filter(x=>x[0]!=='ٓ').length){ const md=n.m.filter(x=>x[0]==='ٓ'); u.c='ا'; u.m=[['ٰ',(n.code&31)?n.code:u.code]].concat(md); W.splice(k+1,nk-k); continue }
       // الْـَٰٔنَ → الْـٰٔنَ
       if(u.c==='ـ'&&has(u,'ٔ')&&has(u,'ٰ')){ del(u,'َ'); continue }   // الْـٰٔنَ (Türk mushafında da böyle)
       // ءُو / ئُو → ؤُ : مُسْتَهْزِؤُنَ ، اَنْبِؤُن۪ي
@@ -914,7 +914,7 @@ function trTurk(i,ch){
       // اَنَا۠ : okunmayan elifin sıfırı yok
       del(u,'۠');
       // هُۥ : uzatma vavı yazılmaz
-      if(has(u,'ُ')) del(u,'ۥ');
+      if(has(u,'ُ')){ const sw=u.m.find(x=>x[0]==='ۥ'); if(sw&&(sw[1]&31)) u.m=u.m.map(x=>x[0]==='ُ'?[x[0],sw[1]]:x); del(u,'ۥ') }
       // üstün + elif-i maksûre işareti: elif işareti üstünün yerine geçer
       if(has(u,'َ')&&has(u,'ٰ')) del(u,'َ');
       // ـَ ىٰ / ـَ وٰ → ـٰى ، ـٰو (elif işareti önceki harfe): عَلٰى ، الصَّلٰوةَ
@@ -954,7 +954,7 @@ function trTurk(i,ch){
     if(stop){ const L=W[W.length-1], P2=W[W.length-2]; if(L&&L.c==='م'&&has(L,'ُ')&&W.length>2&&'كهت'.includes(P2.c)&&has(P2,'ُِ')) L.m=L.m.map(x=>x[0]==='ُ'?['ْ',x[1]]:x) }
     // durakta munfasıl med işareti yazılmaz (muttasıl ve hurûf-ı mukattaa hariç)
     const isMuq=W.some(u=>has(u,'ٓ'))&&W.every(u=>u.m.every(x=>'ٰٓ'.includes(x[0])));
-    if((stop||ayEnd||mwq)&&!isMuq) for(let k=Math.max(0,W.length-2);k<W.length;k++){ const L=W[k], nx=W[k+1];
+    if((stop||ayEnd)&&!isMuq) for(let k=Math.max(0,W.length-2);k<W.length;k++){ /* yalnız Türk vakıf işaretinde; Medine işareti tek başına değil: 2:80, 17:32, 20:46 PDF'te medli */ const L=W[k], nx=W[k+1];
       if(nx&&'ءأؤئ'.includes(nx.c)) continue; L.m=L.m.filter(x=>!(x[0]==='ٓ'&&(x[1]&31)!==6&&(x[1]&31)!==7)) }
     W.wq=wq||null;
   });
@@ -986,8 +986,36 @@ function ayahAr(i){
   const f=A[i][5]; let chars=[];
   for(let k=0;k<f.length;k++){ const t=f[k]; let c=0; if(typeof f[k+1]==='number'){c=f[k+1];k++} for(const ch of t) chars.push([ch,c]) }
   if(st.imla==='tr') chars=trTurk(i,trImla(trAlef(i,chars))); else chars=chars.map(x=>x[0]==='ٮ'?['ى',x[1]]:x);
-  chars=arRaStop(chars); chars=arAllah(i,chars); chars=arLazim(chars); chars=arNida(chars);
+  chars=arRaStop(chars); chars=arAllah(i,chars); chars=arLazim(chars); chars=arNida(chars); chars=arMeddFix(chars); chars=arFromOk(i,chars);
   const h=spanify(chars); arCache.set(key,h); return h;
+}
+// verideki küçük tutarsızlık: munfasıl harfinden önceki hareke 'muttasıl' kodlu (كَفَرُوٓا ، أَنصَارِىٓ) → aynı uzatma, munfasıl
+function arMeddFix(chars){
+  let out=null; const set=(k,c)=>{ if(!out) out=chars.slice(); out[k]=[chars[k][0],c] };
+  for(let k=0;k<chars.length;k++){ const ch=chars[k][0], c=chars[k][1], p=c&31, n=chars[k+1];
+    // munfasıl harfinden önceki hareke 'muttasıl' kodlu (كَفَرُوٓا ، أَنصَارِىٓ / ـٖ) → munfasıl
+    if('\u064E\u064F\u0650\u0656\u0657ـ'.includes(ch)&&p===6&&n&&(n[1]&31)===18) set(k,(c&~31)|18);
+    else if(ch==='ـ'&&p===6&&k>0&&(chars[k-1][1]&31)===18) set(k,(c&~31)|18);
+    // uzatma olmayan yerde munfasıl kodu (ٱبْنَىْ ، ذَوَاتَىْ ، وَنَبْلُوَاْ)
+    else if(p===18&&'\u064E'.includes(ch)&&(!(n&&(n[1]&31)===18)||(n&&'ىي'.includes(n[0])&&chars[k+2]&&chars[k+2][0]==='\u0652'))) set(k,c&~31);
+    else if(p===18&&(ch==='ى'||ch==='ي')&&n&&n[0]==='\u0652') set(k,c&~31);
+    else if(p===18&&ch==='\u0652'&&k>0&&'ىي'.includes(chars[k-1][0])) set(k,c&~31);
+  }
+  return out||chars;
+}
+// okunuşta durulan kelimenin son harfi: kalkale ve râ kalınlığı Arapçada da aynı
+function arFromOk(i,chars){
+  let ok; try{ ok=okTj(i) }catch(e){ return chars }
+  const lastTok={}; for(const t of ok){ if(t[2]>=0&&/[a-zçğışü']/i.test(t[0])) lastTok[t[2]]=t }
+  let out=null, w=0, s=0;
+  const fix=end=>{ const T=lastTok[w]; if(!T) return; let L=-1; for(let q=s;q<end;q++){ const c=chars[q][0]; if(c.length===1&&c!=='ـ'&&/[ء-يٱ]/.test(c)) L=q }
+    if(L<0) return; const b=chars[L][0], tc=T[1];
+    let q2=L+1; while(q2<end&&!(chars[q2][0].length===1&&/[ء-يٱ]/.test(chars[q2][0]))) q2++;
+    const apply=f=>{ if(!out) out=chars.slice(); for(let q=L;q<q2;q++) if(chars[q][0].length===1) out[q]=[out[q][0],f(out[q][1])] };
+    if('قطبجد'.includes(b)&&(tc&31)===8&&/^[kbtcd]+$/.test(T[0])&&!(chars[L][1]&31)) apply(c=>(c&~31)|8);
+    if(b==='ر'&&/^r+$/.test(T[0])&&(tc&96)) apply(c=>(c&~96)|(tc&96)); };
+  for(let k=0;k<=chars.length;k++){ if(k<chars.length&&chars[k][0]!==' ') continue; fix(k); w++; s=k+1 }
+  return out||chars;
 }
 // nidâ yâ'sı / tenbîh hâ'sı + hemze (يَـٰٓأَيُّهَا ، هَـٰٓؤُلَآءِ): okunuştaki gibi munfasıl
 function arNida(chars){
