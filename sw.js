@@ -1,5 +1,5 @@
 /* Tilâvet çevrimdışı önbellek */
-const V='tilavet-v38';
+const V='tilavet-v39';
 const MUSHAF='tilavet-mushaf-3'; // PDF.js ve kelime yerleri; dosyalar değişirse numarayı artırın
 const SHELL=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./apple-touch-icon.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(SHELL.map(u=>new Request(u,{cache:'reload'})))).then(()=>self.skipWaiting()))});
