@@ -559,6 +559,7 @@ return function(flat,surah,ayah){
   const nextPron=(i)=>{ if(isSekte(i)) return -1; for(let j=i+1;j<U.length;j++){const u=U[j]; if(u.b===LAZIM) return -1; if(u.b===' '||WAQF.includes(u.b)||SKIP.includes(u.b)) continue; if(P(u.c)===3||P(u.c)===1||P(u.c)===2) continue; if(u.b==='ـ') continue; if('اىٮ'.includes(u.b)&&!(u.f||u.k||u.d||u.sk||u.sh||u.tn)&&!u.ms.includes(HAMA)) continue; return j} return -1};
   const allahNext=(i)=>{const j=nextPron(i); if(j<0) return false; const a=U[j],b2=U[j+1]; return a.b==='ل'&&((a.sh&&b2&&b2.b==='ه')||(!a.ms&&b2&&b2.b==='ل'&&b2.sh&&U[j+2]&&U[j+2].b==='ه'))};
   // durunca kelime sonu: tenvin üstün → â (ة → h), öteki tenvin ve son kısa ünlü okunmaz
+  let stopAt=-1;
   const stopForm=(baseCh,hz)=>{
     let e=out.length; while(e>0&&(out[e-1].sp||out[e-1].waqf)) e--;
     const L=out[e-1]; if(!L) return;
@@ -567,9 +568,17 @@ return function(flat,surah,ayah){
     else if(L.v==='l'&&L.sil){ out.splice(e-1,1) }
     let f=out.length; while(f>0&&(out[f-1].sp||out[f-1].waqf)) f--; const C=out[f-1]; if(C&&C.t==='t'&&baseCh==='ة') C.t='h';
     if((hz||baseCh==='ع')&&C&&C.v&&!L.tn) out.splice(f,0,{t:"'",c:0,w:C.w});
-    else if(C&&!C.v&&!C.sp&&'قطبجد'.includes(baseCh)&&C.t===CONS[baseCh]) C.c=((C.c||0)&~31)|8;   // durunca kalkale   // sondaki hemze durunca duyulur: semâ'
+    else if(C&&!C.v&&!C.sp&&'قطبجد'.includes(baseCh)&&C.t===CONS[baseCh]) C.c=((C.c||0)&~31)|8;   // durunca kalkale
+    if(baseCh==='ر') raStop(stopAt,C);   // sondaki hemze durunca duyulur: semâ'
   };
   const isHamU=u=>!!u&&(HAMZA.includes(u.b)||u.ms.includes(HAMA)||u.ms.includes(HAMB));
+  // durunca sâkin olan râ: önceki harekeye bakılır (sâkin yâ → ince; üstün/ötre → kalın; esre → ince, araya ص girerse kalın: Mısr)
+  const raStopHeavy=ri=>{ let sad=false; for(let j=ri-1;j>=0;j--){ const u=U[j]; if(u.b===' '||!/[ء-يٱٮ]/.test(u.b)) { if(u.b===' ') return null; continue }
+      if(u.b==='ي'&&!(u.f||u.k||u.d||u.sh)) return false;
+      if((u.b==='ا'||u.b==='ى'||u.b==='و')&&!(u.f||u.k||u.d||u.sh||u.sk)) continue;
+      if(u.f||u.d) return true; if(u.k) return sad; if(u.b==='ص') sad=true; } return null };
+  const lastLetIdx=i=>{ for(let j=i-1;j>=0;j--) if(/[ء-يٱٮ]/.test(U[j].b)) return j; return -1 };
+  const raStop=(ri,C)=>{ if(ri<0||U[ri].b!=='ر'||!C||!/^r+$/.test(C.t)) return; const hv=raStopHeavy(ri); if(hv===null) return; const set=o=>{ o.c=((o.c||0)&~96)|(hv?32:64) }; set(C); const k=out.indexOf(C); if(U[ri].sh&&k>0&&out[k-1].t==='r') set(out[k-1]) };
   const hamBefore=i=>{ for(let j=i-1;j>=0;j--){ if(/[ء-يٱٮ]/.test(U[j].b)) return isHamU(U[j]) } return false };
   const baseBefore=i=>{ for(let j=i-1;j>=0;j--){ const b=U[j].b; if(b===' '&&j<i-1&&/[ء-يٱٮ]/.test(U[j+1]?U[j+1].b:'')) {} if(/[ء-يٱٮ]/.test(b)) return b } return '' };
   let joinNext=false, articleSpace=false, splitShadda=false, firstPron=true, afterLazim=false;
@@ -594,7 +603,7 @@ return function(flat,surah,ayah){
   for(let i=0;i<U.length;i++){
     const u=U[i]; if(u.done) continue; const b=u.b; if(wordOf[i]>=0) curW=wordOf[i];
     if(b===' '){ if(joinNext){continue} if(sektePrev(i)&&!(out.length&&out[out.length-1].lazim)){ push(' ˈ ',0,{waqf:true,sekte:true}); continue } push(' ',0,{sp:true}); continue}
-    if(WAQF.includes(b)){ if(sektePrev(i)&&b!==LAZIM) continue; if(b===LAZIM){ stopForm(baseBefore(i),hamBefore(i)); afterLazim=true; for(let k=out.length-1;k>=0&&!out[k].sp;k--) if(P(out[k].c||0)===18) out[k].c=(out[k].c&~31)|4 } push(' ·',0,{waqf:true,lazim:b===LAZIM,pass:b==='ۖ'}); continue}
+    if(WAQF.includes(b)){ if(sektePrev(i)&&b!==LAZIM) continue; if(b===LAZIM){ stopAt=lastLetIdx(i); stopForm(baseBefore(i),hamBefore(i)); afterLazim=true; for(let k=out.length-1;k>=0&&!out[k].sp;k--) if(P(out[k].c||0)===18) out[k].c=(out[k].c&~31)|4 } push(' ·',0,{waqf:true,lazim:b===LAZIM,pass:b==='ۖ'}); continue}
     if(SKIP.includes(b)) continue;
     if(u.teshil){ push('a',u.c,{v:'s'}); continue }   // ikinci hemze yumuşatılır: e-a'cemiyyun
     const wi=wordOf[i], wstart=words[wi][0]===i;
@@ -605,7 +614,7 @@ return function(flat,surah,ayah){
     if(b==='ٱ'){
       let wk=out.length-1; while(wk>=0&&out[wk].sp) wk--; let afterWaqf=wk>=0&&!!out[wk].waqf;
       if(afterWaqf&&out[wk].pass){ out.splice(wk,1); afterWaqf=false }   // geçmek evlâ (ۖ / ز ص صلى ق): vasıl okunur
-      if(afterWaqf&&!out[wk].lazim){ const wq=out.splice(wk); stopForm(baseBefore(i),hamBefore(i)); out.push(...wq) } // vasıl elifiyle başlayan kelimeden önce durulur: önceki kelime durak hâlinde okunur
+      if(afterWaqf&&!out[wk].lazim){ const wq=out.splice(wk); stopAt=lastLetIdx(i); stopForm(baseBefore(i),hamBefore(i)); out.push(...wq) } // vasıl elifiyle başlayan kelimeden önce durulur: önceki kelime durak hâlinde okunur
       if(firstPron||afterWaqf){ const n=U[i+1]; const sk0=words[wi].map(j=>U[j].b).join('').replace(/[^ء-يٱ]/g,''); let vw='i'; if(n&&n.b==='ل') vw='e'; else { const n2=U[i+2]; if(n2&&n2.d&&!/^[وف]?ٱ(ئت|بن|سم|قض|مر|مش|تق)/.test(sk0)) vw='u'; }   // ٱسْمُهُ ٱبْنُ ٱمْرُؤٌ ٱئْتُوا ٱبْنُوا ٱمْشُوا ٱقْضُوا ٱتَّقُوا: i
         if(/^ٱللهم?$/.test(sk0)) vw='a'; else if(n&&n.b==='ل') articleSpace=true;
         push(vw,u.c&~31,{v:'s'}); firstPron=false; continue }
@@ -704,6 +713,7 @@ return function(flat,surah,ayah){
     const C=out[out.length-1]; if(C&&C.t==='t'&&lastBase(U)==='ة') C.t='h';
     const E=out[out.length-1]; if(lastBase(U)==='ع'&&E&&!/'$/.test(E.t)) push("'",0);
     else if(!L.tn&&E&&E.v&&hamBefore(U.length)) push("'",0);   // sondaki hemze durunca duyulur: es semâ', yeşâ'
+    { let k=out.length-1; while(k>=0&&(out[k].sp||out[k].t==="'")) k--; if(lastBase(U)==='ر') raStop(lastLetIdx(U.length),out[k]) }
   }
   while(out.length&&(out[0].sp||out[0].waqf)) out.shift();
   // ilk harf büyük
@@ -974,7 +984,22 @@ function ayahAr(i){
   const f=A[i][5]; let chars=[];
   for(let k=0;k<f.length;k++){ const t=f[k]; let c=0; if(typeof f[k+1]==='number'){c=f[k+1];k++} for(const ch of t) chars.push([ch,c]) }
   if(st.imla==='tr') chars=trTurk(i,trImla(trAlef(i,chars))); else chars=chars.map(x=>x[0]==='ٮ'?['ى',x[1]]:x);
+  chars=arRaStop(chars);
   const h=spanify(chars); arCache.set(key,h); return h;
+}
+// ayet sonunda durulan râ: kalınlığı durak hâline göre (kadîr ince, en nâr / el fecr kalın)
+function arRaStop(chars){
+  const isL=s=>/^[ء-يٱٮ]$/.test(s), U=[];
+  chars.forEach((x,k)=>{ if(isL(x[0])) U.push({b:x[0],ks:[k],m:''}); else if(U.length&&x[0].length===1&&/[\u064B-\u065F\u0670\u06D6-\u06ED]/.test(x[0])) { const u=U[U.length-1]; u.m+=x[0]; u.ks.push(k) } else if(x[0]===' ') U.push({b:' ',ks:[],m:''}) });
+  let L=U.length-1; while(L>=0&&U[L].b===' ') L--; if(L<0||U[L].b!=='ر') return chars;
+  const has=(u,s)=>[...s].some(c=>u.m.includes(c));
+  let hv=null, sad=false;
+  for(let j=L-1;j>=0;j--){ const u=U[j]; if(u.b===' ') break;
+    if(u.b==='ي'&&!has(u,'َُِّ')){ hv=false; break }
+    if('اىو'.includes(u.b)&&!has(u,'َُِّْ')) continue;
+    if(has(u,'َُ')){ hv=true; break } if(has(u,'ِ')){ hv=sad; break } if(u.b==='ص') sad=true }
+  if(hv===null) return chars;
+  const out=chars.slice(); U[L].ks.forEach(k=>{ out[k]=[out[k][0],(out[k][1]&~96)|(hv?32:64)] }); return out;
 }
 const TR=makeTranslit(), okCache=new Map();
 // Türk imlâsında okunuştaki duraklar da Türk mushafının vakıf işaretlerine göre (م lâzım → durulur; ط ج قف ∴ → durulabilir; ز ص صلى ق → geçmek evlâ; لا ع ن → yok)
