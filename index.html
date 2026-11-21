@@ -344,6 +344,25 @@ body.has-player{--dock-max:20vh}
 .sz-b{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:22px;line-height:1;cursor:pointer;display:grid;place-items:center}.sz-b:disabled{opacity:.35;cursor:default}.sz-b:not(:disabled):active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .sz-sep{border-top:1px solid var(--line);padding-top:8px}
 .sz-v{min-width:40px;text-align:center;font-variant-numeric:tabular-nums;font-size:14px;color:var(--muted)}
+.ht-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 14px 10px;margin:4px 4px 10px}
+.ht-top{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:8px}
+.ht-k{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase}.ht-big{font-size:34px;font-weight:700;color:var(--accent);line-height:1.1;font-variant-numeric:tabular-nums}
+.ht-nums{display:flex;gap:14px;text-align:center}.ht-nums b,.ht-pl b{display:block;font-size:17px;font-variant-numeric:tabular-nums}.ht-nums small,.ht-pl small{font-size:11px;color:var(--muted)}
+.ht-card .prog{margin:4px 0 10px}
+.ht-next{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:10px}.ht-next span{display:grid}.ht-next small{font-size:12px;color:var(--muted)}
+.ht-plan{margin:0 4px 6px;padding:10px 12px;border:1px solid var(--line);border-radius:12px}.ht-plan label{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px;font-weight:600}.ht-plan select{font:inherit;font-size:14px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);max-width:62%}
+.ht-pl{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center;margin-top:10px}.ht-pl .ok{color:var(--accent)}.ht-pl .late{color:#c0563a}
+.lg-h .muted{font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)}
+.ht-juz{display:grid;gap:6px;padding:0 4px}
+.ht-j{border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden}.ht-j.open{border-color:var(--accent)}
+.ht-jh{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:10px;width:100%;padding:9px 12px;background:none;border:0;color:inherit;text-align:start;cursor:pointer;font:inherit}
+.ht-jn{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--bg);border:1px solid var(--line);font-weight:700;font-size:14px;font-variant-numeric:tabular-nums}.ht-j.done .ht-jn{background:var(--accent);border-color:var(--accent);color:#fff}
+.ht-jt{display:grid;gap:2px;min-width:0}.ht-jt b{font-size:14.5px}.ht-jt em{font-style:normal;font-size:11px;font-weight:600;color:var(--accent);margin-inline-start:4px}.ht-jt small{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ht-bar{display:block;height:4px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:3px}.ht-bar i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.ht-jc{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.ht-pages{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:6px;padding:4px 12px 10px}
+.ht-p{height:40px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:13px;font-variant-numeric:tabular-nums;cursor:pointer}.ht-p.r{background:var(--accent);border-color:var(--accent);color:#fff}.ht-p.c{box-shadow:0 0 0 2px var(--gold) inset}
+.ht-acts{display:flex;gap:8px;flex-wrap:wrap;padding:0 12px 12px}
 .off-st{font-size:14px}.off-st .muted{color:var(--muted)}
 .off-btns{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
 .off-bar{height:6px;border-radius:3px;background:var(--line,rgba(0,0,0,.1));overflow:hidden;margin:8px 0 4px}.off-bar i{display:block;height:100%;background:var(--accent);transition:width .3s}
@@ -784,6 +803,22 @@ const DEF={page:1,mode:'verse',imla:'tr',okType:'egitim',ar:34,ok:18,meal:'dv',o
 const st=Object.assign({},DEF,store.get('st',{}));
 if(st.fontv!==7){ ['font','fontv','ar','ok','imla','okType','tc','tk','tq'].forEach(k=>st[k]=DEF[k]) }
 let read=new Set(store.get('read',[])), marks=store.get('marks',[]), judged=store.get('judged',{}), revealed=new Set();
+let readLog=store.get('readLog',{}), htOpen=null;
+const dayStr=(d=new Date())=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+function setRead(p,on){ if(on){ read.add(p); readLog[p]=dayStr() } else { read.delete(p); delete readLog[p] } }
+function saveRead(){ store.set('read',[...read]); store.set('readLog',readLog) }
+function nextUnread(){ // en son işaretlenen sayfadan sonraki ilk okunmamış sayfa
+  let last=0, lt=''; for(const p of read){ const d=readLog[p]||''; if(d>lt||(d===lt&&p>last)){ lt=d; last=p } }
+  for(let q=last+1;q<=604;q++) if(!read.has(q)) return q;
+  for(let q=1;q<=604;q++) if(!read.has(q)) return q; return 0 }
+function hatimPlan(){
+  if(!st.planDays) return null;
+  if(!st.planStart){ st.planStart=dayStr(); save() }
+  const t0=new Date(st.planStart+'T00:00'), now=new Date(dayStr()+'T00:00'), day=Math.round((now-t0)/864e5)+1;
+  const daily=Math.ceil(604/st.planDays), should=Math.min(604,Math.round(604*(day-1)/st.planDays)); // önceki günlerin hedefi; bugününki ayrıca gösteriliyor
+  const end=new Date(t0.getTime()+(st.planDays-1)*864e5);
+  return {daily, diff:read.size-should, left:Math.max(0,st.planDays-day+1), end:end.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})};
+}
 let sel=-1, focusRule=null, tab='sure';
 const save=()=>store.set('st',st);
 
@@ -1014,6 +1049,7 @@ function renderIntro(){
 }
 
 /* ---------- side panel ---------- */
+document.addEventListener('change',e=>{ if(e.target&&e.target.id==='htPlan'){ st.planDays=+e.target.value; st.planStart=st.planDays?dayStr():null; save(); renderTab() } });
 function renderTab(){
   document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));
   const b=$('#tabBody'); const curS=A[pages[st.page][0]][0];
@@ -1044,17 +1080,41 @@ function renderTab(){
     ['tk','tq'].forEach(k=>{h+='<button class="lg-i" data-rule="'+k+'" aria-pressed="'+(focusRule===k)+'"><span class="sw" style="background:var(--'+k+')"></span><span><b>'+XRULES[k][0]+'</b><small>'+XRULES[k][1]+(k==='tq'&&!st.tq?' (Ayarlardan açılabilir.)':'')+'</small></span></button>'});
     b.innerHTML=h+'</div>';
   } else if(tab==='hatim'){
+    if(htOpen===null) htOpen=pageJuz[st.page]||1;
     const n=read.size, pct=Math.round(n/604*1000)/10;
     const again=Object.keys(judged).filter(k=>judged[k]===2).map(Number).sort((x,y)=>x-y);
-    let h='<div class="stat"><span class="big">'+n+'</span><span>/ 604 sayfa okundu · %'+String(pct).replace('.',',')+'</span></div><div class="prog"><i style="width:'+(n/604*100)+'%"></i></div>';
-    h+='<div class="lg-h">Sayfa haritası (her satır bir cüz)</div><div class="juzgrid">';
-    for(let j=1;j<=30;j++){const p0=juzFirstPage[j], end=j<30?juzFirstPage[j+1]-1:604; let c='';
-      for(let q=p0;q<=end;q++) c+='<button class="'+(read.has(q)?'r':'')+(q===st.page?' c':'')+'" data-page="'+q+'" title="Sayfa '+q+'" aria-label="Sayfa '+q+'"></button>';
-      h+='<div class="jrow"><span>'+j+'</span><div class="cells">'+c+'</div></div>'}
+    const today=dayStr(), todayN=Object.values(readLog).filter(d=>d===today).length;
+    const jEnd=j=>j<30?juzFirstPage[j+1]-1:604;
+    let doneJ=0; for(let j=1;j<=30;j++){ let c=0; for(let q=juzFirstPage[j];q<=jEnd(j);q++) if(read.has(q)) c++; if(c===jEnd(j)-juzFirstPage[j]+1) doneJ++ }
+    const nx=nextUnread(), na=nx?A[pages[nx][0]]:null;
+    let h='<div class="ht-card"><div class="ht-top"><div><div class="ht-k">'+((st.hatims||0)+1)+'. hatim</div><div class="ht-big">%'+String(pct).replace('.',',')+'</div></div>'+
+      '<div class="ht-nums"><div><b>'+n+'</b><small>/ 604 sayfa</small></div><div><b>'+doneJ+'</b><small>/ 30 cüz</small></div><div><b>'+todayN+'</b><small>bugün</small></div></div></div>'+
+      '<div class="prog"><i style="width:'+(n/604*100)+'%"></i></div>'+
+      (n>=604?'<div class="ht-next"><span><b>Hatim tamamlandı.</b><small>Allah kabul etsin.</small></span><button class="small-btn primary" id="htNew">Yeni hatime başla</button></div>'
+       :nx?'<div class="ht-next"><span><small>Sıradaki okunmamış sayfa</small><b>Sayfa '+nx+' · '+esc(S[na[0]-1][0])+'</b></span><button class="small-btn primary" data-page="'+nx+'">Devam et</button></div>':'')+
+      '</div>';
+    // plan
+    const pl=hatimPlan();
+    h+='<div class="ht-plan"><label>Hatim hedefi<select id="htPlan"><option value="0">Hedef yok</option>'+[[30,'30 gün'],[40,'40 gün'],[60,'60 gün'],[90,'90 gün'],[180,'6 ay'],[365,'1 yıl']].map(([d,t])=>'<option value="'+d+'"'+(st.planDays===d?' selected':'')+'>'+t+'</option>').join('')+'</select></label>'+
+      (pl?'<div class="ht-pl"><div><b>'+pl.daily+'</b><small>sayfa / gün</small></div><div><b>'+Math.min(todayN,pl.daily)+' / '+pl.daily+'</b><small>bugünkü hedef</small></div><div><b class="'+(pl.diff>=0?'ok':'late')+'">'+(pl.diff>=0?pl.diff+' önde':(-pl.diff)+' geride')+'</b><small>plana göre (sayfa)</small></div></div><div class="hint" style="padding:4px 0 0">Bitiş: '+pl.end+' · '+pl.left+' gün kaldı</div>':'')+
+      '</div>';
+    // cüzler
+    h+='<div class="lg-h">Cüzler <span class="muted">· okuduğunuz sayfaya dokunup işaretleyin</span></div><div class="ht-juz">';
+    for(let j=1;j<=30;j++){
+      const p0=juzFirstPage[j], e=jEnd(j), tot=e-p0+1; let c=0; for(let q=p0;q<=e;q++) if(read.has(q)) c++;
+      const a=A[pages[p0][0]], open=htOpen===j, cur=st.page>=p0&&st.page<=e;
+      h+='<div class="ht-j'+(c===tot?' done':'')+(open?' open':'')+'"><button class="ht-jh" data-oj="'+j+'" aria-expanded="'+open+'"><span class="ht-jn">'+(c===tot?'✓':j)+'</span><span class="ht-jt"><b>'+j+'. Cüz'+(cur?' <em>buradasınız</em>':'')+'</b><small>'+esc(S[a[0]-1][0])+' '+a[1]+' · s. '+p0+'–'+e+'</small><i class="ht-bar"><i style="width:'+(c/tot*100)+'%"></i></i></span><span class="ht-jc">'+c+'/'+tot+'</span></button>';
+      if(open){
+        h+='<div class="ht-pages">';
+        for(let q=p0;q<=e;q++) h+='<button class="ht-p'+(read.has(q)?' r':'')+(q===st.page?' c':'')+'" data-rp="'+q+'" aria-pressed="'+read.has(q)+'" aria-label="Sayfa '+q+(read.has(q)?', okundu':'')+'">'+q+'</button>';
+        h+='</div><div class="ht-acts"><button class="small-btn" data-page="'+p0+'">Cüzün başına git</button><button class="small-btn" data-jall="'+j+'">'+(c===tot?'İşaretleri kaldır':'Tamamını okundu işaretle')+'</button></div>';
+      }
+      h+='</div>';
+    }
     h+='</div>';
     h+='<div class="lg-h">Yer imleri</div>'+(marks.length?'<div class="list">'+marks.slice().sort((x,y)=>x-y).map(p=>{const a=A[pages[p][0]];return '<button class="row" data-page="'+p+'"><span class="no">'+p+'</span><span class="nm"><b>Sayfa '+p+'</b><small>'+esc(S[a[0]-1][0])+' '+a[1]+'. ayet · '+a[3]+'. cüz</small></span><span></span></button>'}).join('')+'</div>':'<div class="empty">Henüz yer imi yok. Üstteki kurdele simgesiyle ekleyebilirsiniz.</div>');
     h+='<div class="lg-h">Tekrar edilecek ayetler ('+again.length+')</div>'+(again.length?'<div class="list">'+again.slice(0,200).map(i=>'<button class="res" data-ayah="'+i+'"><div class="ref">'+A[i][0]+':'+A[i][1]+' · '+esc(S[A[i][0]-1][0])+'</div><div class="tx">'+esc(okText(i).slice(0,90))+(okText(i).length>90?'…':'')+'</div></button>').join('')+'</div>':'<div class="empty">Kontrol modunda “Tekrar edeceğim” dediğiniz ayetler burada toplanır.</div>');
-    h+='<div style="padding:12px 4px;display:flex;gap:8px;flex-wrap:wrap"><button class="small-btn" id="resetHatim">Hatim ilerlemesini sıfırla</button></div><div id="resetConfirm"></div>';
+    h+='<div style="padding:12px 4px;display:flex;gap:8px;flex-wrap:wrap"><button class="small-btn" id="resetHatim">Hatim ilerlemesini sıfırla</button></div><div id="resetConfirm"></div>'+((st.hatims||0)?'<div class="hint">Tamamlanan hatim: '+st.hatims+'</div>':'');
     b.innerHTML=h;
   }
 }
@@ -1697,9 +1757,13 @@ document.addEventListener('click',e=>{
   if(t.closest('#popClose')){ hidePop(); return }
   if(t.closest('#dockClose')){sel=-1;document.querySelectorAll('.ay.sel').forEach(x=>x.classList.remove('sel'));renderDock();return}
   if(t.closest('#introClose')){st.intro=false;save();renderIntro();return}
-  if(t.closest('#doneBtn')){const p=st.page; if(read.has(p)) read.delete(p); else read.add(p); store.set('read',[...read]); renderPage(); if(tab==='hatim'||tab==='cuz') renderTab(); if(read.has(p)) toast('Sayfa '+p+' hatim ilerlemenize eklendi. Toplam '+read.size+' / 604'); return}
+  if((b=t.closest('[data-oj]'))){ const j=+b.dataset.oj; htOpen=htOpen===j?null:j; renderTab(); return }
+  if((b=t.closest('[data-rp]'))){ const q=+b.dataset.rp; setRead(q,!read.has(q)); saveRead(); renderTab(); if(q===st.page) renderPage(); return }
+  if((b=t.closest('[data-jall]'))){ const j=+b.dataset.jall, p0=juzFirstPage[j], e=j<30?juzFirstPage[j+1]-1:604; let all=true; for(let q=p0;q<=e;q++) if(!read.has(q)) all=false; for(let q=p0;q<=e;q++) setRead(q,!all); saveRead(); renderTab(); renderPage(); return }
+  if(t.closest('#htNew')){ st.hatims=(st.hatims||0)+1; read=new Set(); readLog={}; if(st.planDays) st.planStart=dayStr(); save(); saveRead(); renderTab(); renderPage(); toast('Yeni hatim başladı. Hayırlı olsun.'); return }
+  if(t.closest('#doneBtn')){const p=st.page; setRead(p,!read.has(p)); saveRead(); renderPage(); if(tab==='hatim'||tab==='cuz') renderTab(); if(read.has(p)) toast('Sayfa '+p+' hatim ilerlemenize eklendi. Toplam '+read.size+' / 604'); return}
   if(t.closest('#resetHatim')){$('#resetConfirm').innerHTML='<div class="hint">Okunan sayfa işaretleri silinecek. Emin misiniz?</div><div style="display:flex;gap:8px;padding:0 4px 12px"><button class="small-btn" id="resetYes">Evet, sıfırla</button><button class="small-btn" id="resetNo">Vazgeç</button></div>';return}
-  if(t.closest('#resetYes')){read=new Set();store.set('read',[]);renderTab();renderPage();return}
+  if(t.closest('#resetYes')){read=new Set();readLog={};saveRead();renderTab();renderPage();return}
   if(t.closest('#resetNo')){$('#resetConfirm').innerHTML='';return}
 });
 function updateSum(){const list=pages[st.page],s=$('.check-sum'); if(!s) return; const a=list.filter(i=>judged[i]===1).length,b=list.filter(i=>judged[i]===2).length; s.textContent=a+' doğru · '+b+' tekrar · '+(list.length-a-b)+' bekliyor'}
