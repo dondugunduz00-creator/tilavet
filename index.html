@@ -533,7 +533,7 @@ function units(flat){
     u.prim=u.c&31; u.vprim=u.vc&31;
     if(u.b==='ر'&&ms.includes('\u06EA')) u.imala=true;          // مَجْر۪يٰهَا (Hûd 41): imâle
     if(u.b==='ا'&&ms.includes('\u06EC')) u.teshil=true;          // ءَا۬عْجَمِيٌّ (Fussilet 44): teshîl
-    if(ms.includes('\u06DC')) u.sekte=true;                       // ۜ sekte (Kıyâme 27, Mutaffifîn 14) / küçük sîn
+    if(ms.includes('\u06DC')) u.sekte=true;                       // ۜ sekte (Yâsîn 52, Kıyâme 27, Mutaffifîn 14) / küçük sîn
     // ـِّۧ / ـِۧ: harekeli küçük yâ ünsüz yâdır (وَلِيِّيَ = veliyyiye, نُحْيِيَ = nuhyiye); harekesiz ـۧ ise uzatmadır
     if(u.b==='ـ'&&u.ms.includes(SHYEH)&&(u.f||u.k||u.d||u.sh||u.sk)){ u.b='ي'; u.m=u.m.filter(x=>x[0]!==SHYEH); u.ms=u.ms.replace(SHYEH,'') }
   }
@@ -551,7 +551,9 @@ return function(flat,surah,ayah){
   const lengthen=(c)=>{const v=lastVowel(); if(!v||v.v==='l') return; v.t0=v.t; v.t=v.t.replace('e','â').replace('a','â').replace('ı','î').replace('i','î').replace('u','û'); v.v='l'; if(P(c)) v.c=c; else if(!P(v.c)) v.c=(v.c&96)|4; };
   // nûn sâkin/tenvinden sonra yâ ya da vâv'a idğam-ı me'al-ğunne: ن okunmaz, sonraki harfe katılır (أَنْ يَضْرِبَ → ey yadribe)
   const idgYW=(i,j)=>!(j<0||!'يو'.includes(U[j].b)||P(U[j].c)!==12);
-  const isSekte=i=>U[i]&&U[i].sekte&&(!U[i+1]||U[i+1].b===' ');
+  const skZ=b=>b==='\u200C'||WAQF.includes(b);
+  const isSekte=i=>{ if(!U[i]||!U[i].sekte) return false; let j=i+1; while(U[j]&&skZ(U[j].b)) j++; return !U[j]||U[j].b===' ' };
+  const sektePrev=i=>{ let j=i-1; while(j>=0&&skZ(U[j].b)) j--; return j>=0&&isSekte(j) };
   const nextPron=(i)=>{ if(isSekte(i)) return -1; for(let j=i+1;j<U.length;j++){const u=U[j]; if(u.b===LAZIM) return -1; if(u.b===' '||WAQF.includes(u.b)||SKIP.includes(u.b)) continue; if(P(u.c)===3||P(u.c)===1||P(u.c)===2) continue; if(u.b==='ـ') continue; if('اىٮ'.includes(u.b)&&!(u.f||u.k||u.d||u.sk||u.sh||u.tn)&&!u.ms.includes(HAMA)) continue; return j} return -1};
   const allahNext=(i)=>{const j=nextPron(i); if(j<0) return false; const a=U[j],b2=U[j+1]; return a.b==='ل'&&((a.sh&&b2&&b2.b==='ه')||(!a.ms&&b2&&b2.b==='ل'&&b2.sh&&U[j+2]&&U[j+2].b==='ه'))};
   // durunca kelime sonu: tenvin üstün → â (ة → h), öteki tenvin ve son kısa ünlü okunmaz
@@ -573,8 +575,8 @@ return function(flat,surah,ayah){
 
   for(let i=0;i<U.length;i++){
     const u=U[i]; if(u.done) continue; const b=u.b; if(wordOf[i]>=0) curW=wordOf[i];
-    if(b===' '){ if(joinNext){continue} if(isSekte(i-1)){ push(' ˈ ',0,{waqf:true,sekte:true}); continue } push(' ',0,{sp:true}); continue}
-    if(WAQF.includes(b)){ if(b===LAZIM){ stopForm(baseBefore(i)); afterLazim=true } push(' ·',0,{waqf:true,lazim:b===LAZIM}); continue}
+    if(b===' '){ if(joinNext){continue} if(sektePrev(i)){ push(' ˈ ',0,{waqf:true,sekte:true}); continue } push(' ',0,{sp:true}); continue}
+    if(WAQF.includes(b)){ if(sektePrev(i)) continue; if(b===LAZIM){ stopForm(baseBefore(i)); afterLazim=true } push(' ·',0,{waqf:true,lazim:b===LAZIM}); continue}
     if(SKIP.includes(b)) continue;
     if(u.teshil){ push('a',u.c,{v:'s'}); continue }   // ikinci hemze yumuşatılır: e-a'cemiyyun
     const wi=wordOf[i], wstart=words[wi][0]===i;
