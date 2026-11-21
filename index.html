@@ -1366,6 +1366,7 @@ function renderPop(){
   p.innerHTML='<div class="pop-h"><b>Ayarlar</b><button class="ibtn" id="popClose" type="button" aria-label="Ayarları kapat">✕</button></div><div class="pop-sec">Arapça metin</div><div class="fld"><label for="sAr">Arapça yazı boyutu</label><input type="range" id="sAr" min="22" max="84" value="'+st.ar+'"><div class="preview-ar tc" id="prevAr">'+ayahAr(idxOf(1,2))+'</div></div>'+
    '<div class="fld"><label for="sFont">Arapça hat</label><select id="sFont"><option value="sch">Türk nesih (iri ve açık)</option><option value="pdf">Diyanet mushafı hattı (PDF\'ten, birebir)</option><option value="user">Yüklediğim yazı tipi</option><option value="noto">Noto Nesih (sade)</option><option value="amiri">Amiri Quran (Mısır baskısı)</option><option value="local">Bilgisayarımda kurulu yazı tipi</option></select>'+
      '<div class="hint" style="padding:2px 0" id="fontHint"></div>'+
+     '<div class="hint" style="padding:2px 0" id="hatHint" hidden>Diyanet mushafının kendi yazı tipi; resim değil, yazıdır: tecvid renkleri, büyütme ve kelime kelime takip çalışır. Yazı tipi telefonunuzdaki mushaf PDF\'inden alınır, başka yere gönderilmez.</div>'+
      '<div id="userFontRow" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label class="small-btn" for="sFontFile" style="cursor:pointer">Yazı tipi dosyası seç</label><span class="hint" style="padding:0">.ttf, .otf, .woff</span></div><input type="file" class="vh" id="sFontFile" accept=".ttf,.otf,.woff,.woff2">'+
      '<input class="search" id="sLocalFont" placeholder="Kurulu yazı tipinin adı" value="'+esc(st.localFont||'')+'" style="margin:4px 0 0"></div>'+
    '<div class="fld"><label for="sImla">Arapça yazım</label><select id="sImla"><option value="tr">Türk mushafı usulü</option><option value="md">Medine mushafı (Osmanî rasm)</option></select></div>'+
@@ -1395,9 +1396,12 @@ function renderPop(){
   $('#sOkType').onchange=e=>{st.okType=e.target.value;NORM=null;upd(true)};
   $('#sOk').oninput=e=>{st.ok=+e.target.value;upd()};
   renderFontHint();
-  const fontRows=()=>{ const u=st.font==='user', l=st.font==='local'; $('#fontHint').hidden=!u; $('#userFontRow').hidden=!u; $('#sLocalFont').hidden=!l };
+  const fontRows=()=>{ const u=st.font==='user', l=st.font==='local'; $('#hatHint').hidden=st.font!=='pdf'; $('#fontHint').hidden=!u; $('#userFontRow').hidden=!u; $('#sLocalFont').hidden=!l };
   fontRows();
-  $('#sFont').onchange=e=>{st.font=e.target.value;upd(true);fontRows(); if(st.font==='pdf') hatKick(); try{$('#prevAr').innerHTML=ayahAr(idxOf(1,2))}catch(_){} };
+  $('#sFont').onchange=e=>{st.font=e.target.value;
+    if(st.font==='pdf'){ st.pdf=false; pdfQ=null; pdfRows();   // hat seçilince Mushaf sekmesi sayfa resmi değil, yazı gösterir
+      if(!st.pdfName){ pdfForHat=true; toast('Diyanet hattı, mushaf PDF\'inin içindeki yazı tipinden alınır. Telefonunuzdaki kuran.pdf dosyasını seçin.',6000); $('#sPdfFile').click() } }
+    upd(true);fontRows(); if(st.font==='pdf'&&st.pdfName) hatKick(); try{$('#prevAr').innerHTML=ayahAr(idxOf(1,2))}catch(_){} };
   $('#sLocalFont').onchange=e=>{st.localFont=e.target.value.trim(); if(st.localFont){st.font='local';$('#sFont').value='local'} upd()};
   $('#sFontFile').onchange=async e=>{const f=e.target.files[0]; if(!f) return;
     try{ const buf=await f.arrayBuffer(); await loadUserFont(buf); st.font='user'; $('#sFont').value='user'; upd();
@@ -1407,12 +1411,12 @@ function renderPop(){
     $('#pdfRow').hidden=!on; $('#sPdfDel').hidden=!has;
     $('#pdfHint').textContent=!on?'':has?'“'+st.pdfName+'” bu cihazda kayıtlı. Mushaf sekmesinde sayfaları olduğu gibi gösterilir: ayete dokunun, okunuş ve meal altta açılır; uzun basın, oradan okunur. Ayet ayet ve Kontrol sekmeleri uygulamanın yazısıyla devam eder.':'Telefonunuzdaki mushaf PDF dosyasını seçin (Diyanet, 616 sayfa). Dosya yalnızca bu cihazda saklanır, hiçbir yere gönderilmez.' };
   pdfRows();
-  $('#sPdf').onchange=e=>{ st.pdf=e.target.value==='1'; save(); pdfRows(); if(st.pdf&&!st.pdfName){ $('#sPdfFile').click(); return } pdfQ=null; renderPage(); szPaint() };
+  $('#sPdf').onchange=e=>{ pdfForHat=false; st.pdf=e.target.value==='1'; save(); pdfRows(); if(st.pdf&&!st.pdfName){ $('#sPdfFile').click(); return } pdfQ=null; renderPage(); szPaint() };
   $('#sPdfFile').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return;
     toast('Mushaf açılıyor…',8000);
     try{ const buf=await f.arrayBuffer(); const doc=await pdfOpenBuf(buf.slice(0));
       try{ await pdfStorePut({buf,name:f.name}); try{ navigator.storage&&navigator.storage.persist&&navigator.storage.persist() }catch(_){} }catch(_){ toast('Dosya açıldı ama bu cihazda saklanamadı (yer yok). Uygulamayı yeniden açınca tekrar seçmeniz gerekir.',7000) }
-      st.pdf=true; st.pdfName=f.name; st.mode='mushaf'; pdfQ=null; save(); pdfRows(); renderPage(); szPaint(); if(st.font==='pdf'){ hatLoading=null; hatKick() }
+      st.pdfName=f.name; if(pdfForHat){ st.pdf=false } else { st.pdf=true; st.mode='mushaf' } pdfForHat=false; pdfQ=null; save(); pdfRows(); renderPage(); szPaint(); if(st.font==='pdf'){ hatLoading=null; hatKick() }
       if(doc.numPages!==PDF_PAGES) toast('Bu PDF '+doc.numPages+' sayfa; ayet yerleri 616 sayfalık Diyanet mushafına göre hazırlandı, bu dosyada kayabilir.',8000);
       else toast('“'+esc(f.name)+'” yüklendi. Mushaf sekmesinde sayfalar birebir gösteriliyor.',4000)
     }catch(err){ toast('Bu dosya PDF olarak açılamadı.',5000) } };
@@ -2102,7 +2106,7 @@ function pdfGeo(){
 }
 function pdfAyahs(q){ pdfGeo(); const a=PF[q]; if(a==null) return []; const o=[]; for(let i=a;i<A.length&&PG[i]===q;i++) o.push(i); return o }
 const PDFJS='./vendor/pdfjs/pdf.min.mjs', PDFJS_W='./vendor/pdfjs/pdf.worker.min.mjs';
-let pdfDoc=null, pdfOpening=null, pdfQ=null, pdfShown=null, pdfGen=0;
+let pdfForHat=false, pdfDoc=null, pdfOpening=null, pdfQ=null, pdfShown=null, pdfGen=0;
 const pdfCache=new Map();   // q -> {c:canvas, w}
 function pdfOn(){ return st.mode==='mushaf'&&!!st.pdf&&!!st.pdfName }
 async function pdfStoreGet(){ const db=await idb(); return await new Promise((ok,no)=>{ const t=db.transaction('kv','readonly'); const r=t.objectStore('kv').get('pdf'); r.onsuccess=()=>ok(r.result||null); r.onerror=()=>no(r.error) }) }
