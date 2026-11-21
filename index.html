@@ -546,6 +546,8 @@ return function(flat,surah,ayah){
   const lastVowelAny=()=>{for(let j=out.length-1;j>=0;j--){if(out[j].v) return out[j]; if(out[j].waqf) return null} return null};
   let curW=0; const push=(t,c,extra)=>{const o=Object.assign({t,c,w:curW},extra||{}); if(o.sp||o.waqf) o.w=-1; out.push(o)};
   const lengthen=(c)=>{const v=lastVowel(); if(!v||v.v==='l') return; v.t0=v.t; v.t=v.t.replace('e','â').replace('a','â').replace('ı','î').replace('i','î').replace('u','û'); v.v='l'; if(P(c)) v.c=c; else if(!P(v.c)) v.c=(v.c&96)|4; };
+  // nûn sâkin/tenvinden sonra yâ ya da vâv'a idğam-ı me'al-ğunne: ن okunmaz, sonraki harfe katılır (أَنْ يَضْرِبَ → ey yadribe)
+  const idgYW=(i,j)=>{ if(j<0||!'يو'.includes(U[j].b)||P(U[j].c)!==12) return false; for(let k=i+1;k<j;k++) if(WAQF.includes(U[k].b)) return false; return true };
   const nextPron=(i)=>{for(let j=i+1;j<U.length;j++){const u=U[j]; if(u.b===' '||WAQF.includes(u.b)||SKIP.includes(u.b)) continue; if(P(u.c)===3||P(u.c)===1||P(u.c)===2) continue; if(u.b==='ـ') continue; if('اىٮ'.includes(u.b)&&!(u.f||u.k||u.d||u.sk||u.sh||u.tn)&&!u.ms.includes(HAMA)) continue; return j} return -1};
   const allahNext=(i)=>{const j=nextPron(i); if(j<0) return false; const a=U[j],b2=U[j+1]; return a.b==='ل'&&((a.sh&&b2&&b2.b==='ه')||(!a.ms&&b2&&b2.b==='ل'&&b2.sh&&U[j+2]&&U[j+2].b==='ه'))};
   let joinNext=false, articleSpace=false, splitShadda=false, firstPron=true;
@@ -608,6 +610,7 @@ return function(flat,surah,ayah){
     if(b==='ن'&&(u.sk||!(u.f||u.k||u.d||u.tn||u.sh))){
       if(u.iq||P(u.c)===15) cons='m';
       else if(P(u.c)===12||P(u.c)===13){ const j=nextPron(i); if(j>=0){ cons=CONS[U[j].b]||cons; if(U[j].sh) U[j].half=true } }
+      else { const j=nextPron(i); if(idgYW(i,j)){ cons=CONS[U[j].b]; u.c=(u.c&~31)|12 } }
     }
     if(b==='م'&&u.sk&&P(u.c)===14){}
     if(cons&&!isHam&&b!=='ع'&&!(u.f||u.k||u.d||u.tn||u.sk||u.sh)&&!u.iq){ const j=nextPron(i); if(j>=0&&U[j].sh&&CONS[U[j].b]&&!(P(u.c)===10)){ cons=CONS[U[j].b]; U[j].half=true } }
@@ -642,8 +645,10 @@ return function(flat,surah,ayah){
       let nc='n'; const j=nextPron(i);
       if(u.iq||(j>=0&&P(U[j].c)===15&&U[j].b==='ب')) nc='m';
       else if((P(u.c)===12||P(u.c)===13||P(u.vc)===12||P(u.vc)===13)&&j>=0) nc=CONS[U[j].b]||'n';
+      let ncc=u.vc||u.c;
+      if(nc==='n'&&idgYW(i,j)){ nc=CONS[U[j].b]; ncc=(ncc&~31)|12 }
       if(nc!=='n'&&nc!=='m'&&j>=0&&U[j].sh) U[j].half=true;
-      push(nc,u.vc||u.c,{tn:true,tv:u.tn});
+      push(nc,ncc,{tn:true,tv:u.tn});
     }
     if(u.ms.includes(DAGGER)&&u.ms.includes(HAMA)){ push("'",u.c) }
     else if(u.ms.includes(DAGGER)) lengthen(u.c);
@@ -944,7 +949,7 @@ function okAyah(i){
     if(!plain&&((p>=5&&p<=7)||p===18)&&/[âîûÂÎÛ]$/.test(t)){ const v=t.slice(-1).toLocaleLowerCase('tr'); t=t+v.repeat(p===7?2:1) }
     const k=plain?null:clsOf(c); if(!k){ prevLab=null; h+=esc(t); continue }
     let lab=edu&&OKLAB[p];
-    const dup=!!lab&&prevLab===c; if(dup) lab=false; else prevLab=lab?c:null;
+    const dup=!!lab&&prevLab!=null&&(prevLab&31)===p; if(dup) lab=false; else prevLab=lab?c:null;
     const g=(!lab&&!dup&&[9,10,11,12,14,15].includes(p))?' gn':'';
     h+= lab ? '<span class="rb"><span class="'+k[0]+g+'" data-r="'+k[1]+'">'+esc(t)+'</span><span class="rl">'+lab+'</span></span>'
             : '<span class="'+k[0]+g+'" data-r="'+k[1]+'">'+esc(t)+'</span>';
