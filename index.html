@@ -342,7 +342,8 @@ body.has-player{--dock-max:20vh}
 .sz-pop{position:fixed;z-index:70;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:grid;gap:8px;box-shadow:0 14px 40px -12px rgba(0,0,0,.35);min-width:250px}.sz-pop[hidden]{display:none}
 .sz-row{display:flex;align-items:center;gap:8px}.sz-l{flex:1;font-size:14px;color:var(--ink);white-space:nowrap}.sz-l b{display:inline-block;min-width:22px;font-weight:600}.sz-l .sz-ar{font-family:var(--f-ar-ui,serif);font-size:19px}
 .sz-b{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:22px;line-height:1;cursor:pointer;display:grid;place-items:center}.sz-b:disabled{opacity:.35;cursor:default}.sz-b:not(:disabled):active{background:var(--accent);color:#fff;border-color:var(--accent)}
-.sz-v{min-width:26px;text-align:center;font-variant-numeric:tabular-nums;font-size:14px;color:var(--muted)}
+.sz-sep{border-top:1px solid var(--line);padding-top:8px}
+.sz-v{min-width:40px;text-align:center;font-variant-numeric:tabular-nums;font-size:14px;color:var(--muted)}
 .off-st{font-size:14px}.off-st .muted{color:var(--muted)}
 .off-btns{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
 .off-bar{height:6px;border-radius:3px;background:var(--line,rgba(0,0,0,.1));overflow:hidden;margin:8px 0 4px}.off-bar i{display:block;height:100%;background:var(--accent);transition:width .3s}
@@ -930,7 +931,7 @@ function fitMushaf(){
   if(!fitProbe){ fitProbe=document.createElement('span'); fitProbe.className='ar'; fitProbe.style.cssText='position:absolute;visibility:hidden;white-space:nowrap;font-size:100px;line-height:1;left:-9999px;top:0;word-spacing:.08em'; fitProbe.textContent=FIT_LINE; document.body.appendChild(fitProbe) }
   const pw=fitProbe.getBoundingClientRect().width||1;
   let size=100*w*0.97/pw*1.32*(st.ar/34);
-  size=Math.max(16,Math.min(size,64));
+  size=Math.max(16,Math.min(size,84));
   document.documentElement.style.setProperty('--mushaf-size',size.toFixed(1)+'px');
   requestAnimationFrame(layoutAll);
 }
@@ -1093,7 +1094,7 @@ function hidePop(){ $('#pop').hidden=true; ovRelease() }
 /* ---------- settings ---------- */
 function renderPop(){
   const p=$('#pop');
-  p.innerHTML='<div class="pop-h"><b>Ayarlar</b><button class="ibtn" id="popClose" type="button" aria-label="Ayarları kapat">✕</button></div><div class="pop-sec">Arapça metin</div><div class="fld"><label for="sAr">Arapça yazı boyutu</label><input type="range" id="sAr" min="22" max="64" value="'+st.ar+'"><div class="preview-ar tc" id="prevAr">'+ayahAr(idxOf(1,2))+'</div></div>'+
+  p.innerHTML='<div class="pop-h"><b>Ayarlar</b><button class="ibtn" id="popClose" type="button" aria-label="Ayarları kapat">✕</button></div><div class="pop-sec">Arapça metin</div><div class="fld"><label for="sAr">Arapça yazı boyutu</label><input type="range" id="sAr" min="22" max="84" value="'+st.ar+'"><div class="preview-ar tc" id="prevAr">'+ayahAr(idxOf(1,2))+'</div></div>'+
    '<div class="fld"><label for="sFont">Arapça hat</label><select id="sFont"><option value="sch">Türk nesih (iri ve açık)</option><option value="user">Yüklediğim yazı tipi</option><option value="noto">Noto Nesih (sade)</option><option value="amiri">Amiri Quran (Mısır baskısı)</option><option value="local">Bilgisayarımda kurulu yazı tipi</option></select>'+
      '<div class="hint" style="padding:2px 0" id="fontHint"></div>'+
      '<div id="userFontRow" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label class="small-btn" for="sFontFile" style="cursor:pointer">Yazı tipi dosyası seç</label><span class="hint" style="padding:0">.ttf, .otf, .woff</span></div><input type="file" class="vh" id="sFontFile" accept=".ttf,.otf,.woff,.woff2">'+
@@ -1109,7 +1110,7 @@ function renderPop(){
      '<label class="sw-row">İnce râ’yı renklendir<input type="checkbox" id="sTq"'+(st.tq?' checked':'')+'></label></div>'+
    '<div class="fld"><label for="sTheme">Tema</label><select id="sTheme"><option value="auto">Cihazla aynı</option><option value="light">Açık</option><option value="dark">Koyu (gece okuması)</option></select></div>'+
    '<div class="pop-sec">Sesli dinleme</div><div class="fld"><label for="sRec">Kâri</label><select id="sRec"><option value="Alafasy_128kbps">Mishary Alafasy</option><option value="Husary_128kbps">Mahmud Halil el-Husari</option><option value="Abdul_Basit_Murattal_192kbps">Abdulbasit Abdussamed (Murattal)</option><option value="Minshawy_Murattal_128kbps">Muhammed Sıddık el-Minşavi</option><option value="Husary_Muallim_128kbps">Husari Muallim (öğretici, yavaş)</option></select></div>'+
-   '<div class="fld"><label for="sRate">Okuma hızı</label><select id="sRate"><option value="0.75">Yavaş (0,75×)</option><option value="0.9">Biraz yavaş (0,9×)</option><option value="1">Normal</option><option value="1.15">Biraz hızlı (1,15×)</option></select></div>'+
+   '<div class="fld"><label for="sRate">Okuma hızı</label><select id="sRate"><option value="0.6">Çok yavaş (0,6×)</option><option value="0.7">Yavaş (0,7×)</option><option value="0.8">Biraz yavaş (0,8×)</option><option value="0.9">Hafif yavaş (0,9×)</option><option value="1">Normal</option><option value="1.1">Biraz hızlı (1,1×)</option><option value="1.25">Hızlı (1,25×)</option></select></div>'+
    '<div class="pop-sec">İnternetsiz dinleme</div><div class="fld" id="offBox"></div>'+
    '<div class="pop-sec">Hata bildirimleri</div><div class="fld" id="repBox"></div>'+
    '<div class="pop-sec">Sıfırlama</div><div class="fld"><button class="small-btn" id="sReset" type="button">Görünümü varsayılana döndür</button></div>'+
@@ -1151,7 +1152,10 @@ const RECS={
   Minshawy_Murattal_128kbps:{cdn:9,n:'Muhammed Sıddık el-Minşavi'}
 };
 const aud=$('#aud');
-function applyRate(){ const r=st.rate||1; try{ aud.defaultPlaybackRate=r; aud.playbackRate=r; aud.preservesPitch=true }catch(e){} }
+const RATES=[0.6,0.7,0.8,0.9,1,1.1,1.25];
+function snapRate(){ if(!st.rate||!RATES.includes(st.rate)) st.rate=RATES.reduce((a,b)=>Math.abs(b-(st.rate||1))<Math.abs(a-(st.rate||1))?b:a) }
+snapRate();
+function applyRate(){ snapRate(); const r=st.rate||1; try{ aud.defaultPlaybackRate=r; aud.playbackRate=r; aud.preservesPitch=true }catch(e){} }
 aud.addEventListener('loadedmetadata',applyRate); aud.addEventListener('play',applyRate);
 const IN_ARTIFACT=false;
 const SILENT='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
@@ -1159,23 +1163,28 @@ const P={on:false,mode:null,s:0,i:-1,data:null,repLeft:1,raf:0,word:-1,lastW:nul
 let playIdx=-1; // geriye uyumluluk
 const surahCache={};
 /* ---------- yazı boyutu: üst köşedeki hızlı ayar ---------- */
-const SZ={ar:[22,64,2], ok:[14,28,1]};
+const SZ={ar:[22,84,2], ok:[14,28,1]};
 function szPaint(){
   const p=document.getElementById('szPop'); if(!p) return;
   p.querySelector('[data-v="ar"]').textContent=st.ar; p.querySelector('[data-v="ok"]').textContent=st.ok;
-  p.querySelectorAll('[data-sz]').forEach(b=>{ const [k,d]=b.dataset.sz.split(':'); const [lo,hi]=SZ[k]; b.disabled=d==='-'?st[k]<=lo:st[k]>=hi });
+  snapRate(); const r=st.rate; p.querySelector('[data-v="rate"]').textContent=String(r).replace('.',',')+'×';
+  p.querySelectorAll('[data-sz]').forEach(b=>{ const [k,d]=b.dataset.sz.split(':');
+    if(k==='rate'){ const i=RATES.indexOf(r); b.disabled=d==='-'?i<=0:i>=RATES.length-1; return }
+    const [lo,hi]=SZ[k]; b.disabled=d==='-'?st[k]<=lo:st[k]>=hi });
 }
 function szToggle(open){
   let p=document.getElementById('szPop');
   if(open===undefined) open=!p||p.hidden;
   if(!p){ p=document.createElement('div'); p.id='szPop'; p.className='sz-pop'; p.hidden=true;
     p.innerHTML='<div class="sz-row"><span class="sz-l"><b class="sz-ar">ع</b> Arapça</span><button type="button" class="sz-b" data-sz="ar:-" aria-label="Arapçayı küçült">−</button><span class="sz-v" data-v="ar"></span><button type="button" class="sz-b" data-sz="ar:+" aria-label="Arapçayı büyüt">+</button></div>'+
-      '<div class="sz-row"><span class="sz-l"><b>Aa</b> Okunuş ve meal</span><button type="button" class="sz-b" data-sz="ok:-" aria-label="Okunuş ve meali küçült">−</button><span class="sz-v" data-v="ok"></span><button type="button" class="sz-b" data-sz="ok:+" aria-label="Okunuş ve meali büyüt">+</button></div>';
+      '<div class="sz-row"><span class="sz-l"><b>Aa</b> Okunuş ve meal</span><button type="button" class="sz-b" data-sz="ok:-" aria-label="Okunuş ve meali küçült">−</button><span class="sz-v" data-v="ok"></span><button type="button" class="sz-b" data-sz="ok:+" aria-label="Okunuş ve meali büyüt">+</button></div>'+
+      '<div class="sz-row sz-sep"><span class="sz-l"><b>▶</b> Okuma hızı</span><button type="button" class="sz-b" data-sz="rate:-" aria-label="Okumayı yavaşlat">−</button><span class="sz-v" data-v="rate"></span><button type="button" class="sz-b" data-sz="rate:+" aria-label="Okumayı hızlandır">+</button></div>';
     document.body.appendChild(p) }
   if(open){ const r=$('#szBtn').getBoundingClientRect(); p.style.top=(r.bottom+8)+'px'; p.style.right=Math.max(8,innerWidth-r.right)+'px'; szPaint() }
   p.hidden=!open; $('#szBtn').setAttribute('aria-expanded',open?'true':'false');
 }
 function szStep(k,d){
+  if(k==='rate'){ snapRate(); const i=RATES.indexOf(st.rate), j=Math.max(0,Math.min(RATES.length-1,i+(d==='+'?1:-1))); st.rate=RATES[j]; save(); applyRate(); szPaint(); try{ $('#sRate').value=String(st.rate) }catch(e){} return }
   const [lo,hi,step]=SZ[k]; const v=Math.max(lo,Math.min(hi,st[k]+(d==='+'?step:-step))); if(v===st[k]) return;
   // okunan yer ekranda kaysın istemiyoruz: ekrandaki ilk ayeti sabit tut
   const vs=[...document.querySelectorAll('#pageEl .v, #pageEl .ay')]; const top=($('.bar')||{}).getBoundingClientRect?$('.bar').getBoundingClientRect().bottom:0;
