@@ -196,6 +196,10 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .ar .w.hl-word{-webkit-text-stroke-color:var(--hl-word)}
 .ay.playing,.v.playing .ar{-webkit-text-stroke-color:var(--accent-soft)}
 @media (hover:hover){.ar .w:hover:not(.hl-word){-webkit-text-stroke-color:var(--accent-soft)}}
+.ar svg.hw{height:2.2em;vertical-align:-.66em;overflow:visible;display:inline-block}
+.ar svg.hw text{fill:currentColor}
+.ar svg.hw .wq,.ar svg.hw .tn{fill:#c8312f}
+[data-theme="dark"] .ar svg.hw .wq,[data-theme="dark"] .ar svg.hw .tn{fill:#ff8a80}
 .ar .wqt{-webkit-text-stroke:0;font-family:var(--f-ar-ui);font-feature-settings:normal;font-size:.4em;position:relative;top:-1.15em;line-height:0;color:#c8312f;padding:0 .08em;white-space:nowrap}
 .ar .wqt.wqn{top:.55em}
 [data-theme="dark"] .ar .wqt{color:#ff8a80}
@@ -914,6 +918,7 @@ function spanify(chars){
 }
 const arCache=new Map();
 function ayahAr(i){
+  if(st.font==='pdf'){ if(hatReady&&HATW){ const k2=i+'|hat'; if(!arCache.has(k2)){ const v=hatAyah(i); if(v!=null) arCache.set(k2,v) } if(arCache.has(k2)) return arCache.get(k2) } else hatKick() }
   const key=i+'|'+st.imla+'|'+st.font+(userEkalem?'e':''); if(arCache.has(key)) return arCache.get(key);
   const f=A[i][5]; let chars=[];
   for(let k=0;k<f.length;k++){ const t=f[k]; let c=0; if(typeof f[k+1]==='number'){c=f[k+1];k++} for(const ch of t) chars.push([ch,c]) }
@@ -1001,7 +1006,7 @@ const save=()=>store.set('st',st);
 function applyPrefs(){ setTimeout(fitMushaf,0);
   const r=document.documentElement;
   r.style.setProperty('--ar-size',st.ar+'px'); r.style.setProperty('--ok-size',st.ok+'px');
-  const FF={noto:'"Noto Naskh Arabic","Scheherazade New",serif',sch:'"TilavetNesih","Scheherazade New","TilavetAmiri",serif',amiri:'"TilavetAmiri","Amiri Quran","TilavetNesih",serif',user:'"TilavetUser","TilavetNesih","TilavetAmiri",serif',local:'"'+(st.localFont||'').replace(/"/g,'')+'","Amiri Quran",serif'};
+  const FF={pdf:'"TilavetNesih","Scheherazade New",serif',noto:'"Noto Naskh Arabic","Scheherazade New",serif',sch:'"TilavetNesih","Scheherazade New","TilavetAmiri",serif',amiri:'"TilavetAmiri","Amiri Quran","TilavetNesih",serif',user:'"TilavetUser","TilavetNesih","TilavetAmiri",serif',local:'"'+(st.localFont||'').replace(/"/g,'')+'","Amiri Quran",serif'};
   r.style.setProperty('--f-ar',FF[st.font]||FF.amiri);
   const uh=st.font==='user'&&userHusrev;
   r.style.setProperty('--ar-lh',uh?'2.45':'2.3');
@@ -1359,7 +1364,7 @@ function hidePop(){ $('#pop').hidden=true; ovRelease() }
 function renderPop(){
   const p=$('#pop');
   p.innerHTML='<div class="pop-h"><b>Ayarlar</b><button class="ibtn" id="popClose" type="button" aria-label="Ayarları kapat">✕</button></div><div class="pop-sec">Arapça metin</div><div class="fld"><label for="sAr">Arapça yazı boyutu</label><input type="range" id="sAr" min="22" max="84" value="'+st.ar+'"><div class="preview-ar tc" id="prevAr">'+ayahAr(idxOf(1,2))+'</div></div>'+
-   '<div class="fld"><label for="sFont">Arapça hat</label><select id="sFont"><option value="sch">Türk nesih (iri ve açık)</option><option value="user">Yüklediğim yazı tipi</option><option value="noto">Noto Nesih (sade)</option><option value="amiri">Amiri Quran (Mısır baskısı)</option><option value="local">Bilgisayarımda kurulu yazı tipi</option></select>'+
+   '<div class="fld"><label for="sFont">Arapça hat</label><select id="sFont"><option value="sch">Türk nesih (iri ve açık)</option><option value="pdf">Diyanet mushafı hattı (PDF\'ten, birebir)</option><option value="user">Yüklediğim yazı tipi</option><option value="noto">Noto Nesih (sade)</option><option value="amiri">Amiri Quran (Mısır baskısı)</option><option value="local">Bilgisayarımda kurulu yazı tipi</option></select>'+
      '<div class="hint" style="padding:2px 0" id="fontHint"></div>'+
      '<div id="userFontRow" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label class="small-btn" for="sFontFile" style="cursor:pointer">Yazı tipi dosyası seç</label><span class="hint" style="padding:0">.ttf, .otf, .woff</span></div><input type="file" class="vh" id="sFontFile" accept=".ttf,.otf,.woff,.woff2">'+
      '<input class="search" id="sLocalFont" placeholder="Kurulu yazı tipinin adı" value="'+esc(st.localFont||'')+'" style="margin:4px 0 0"></div>'+
@@ -1392,7 +1397,7 @@ function renderPop(){
   renderFontHint();
   const fontRows=()=>{ const u=st.font==='user', l=st.font==='local'; $('#fontHint').hidden=!u; $('#userFontRow').hidden=!u; $('#sLocalFont').hidden=!l };
   fontRows();
-  $('#sFont').onchange=e=>{st.font=e.target.value;upd();fontRows()};
+  $('#sFont').onchange=e=>{st.font=e.target.value;upd(true);fontRows(); if(st.font==='pdf') hatKick(); try{$('#prevAr').innerHTML=ayahAr(idxOf(1,2))}catch(_){} };
   $('#sLocalFont').onchange=e=>{st.localFont=e.target.value.trim(); if(st.localFont){st.font='local';$('#sFont').value='local'} upd()};
   $('#sFontFile').onchange=async e=>{const f=e.target.files[0]; if(!f) return;
     try{ const buf=await f.arrayBuffer(); await loadUserFont(buf); st.font='user'; $('#sFont').value='user'; upd();
@@ -1407,7 +1412,7 @@ function renderPop(){
     toast('Mushaf açılıyor…',8000);
     try{ const buf=await f.arrayBuffer(); const doc=await pdfOpenBuf(buf.slice(0));
       try{ await pdfStorePut({buf,name:f.name}); try{ navigator.storage&&navigator.storage.persist&&navigator.storage.persist() }catch(_){} }catch(_){ toast('Dosya açıldı ama bu cihazda saklanamadı (yer yok). Uygulamayı yeniden açınca tekrar seçmeniz gerekir.',7000) }
-      st.pdf=true; st.pdfName=f.name; st.mode='mushaf'; pdfQ=null; save(); pdfRows(); renderPage(); szPaint();
+      st.pdf=true; st.pdfName=f.name; st.mode='mushaf'; pdfQ=null; save(); pdfRows(); renderPage(); szPaint(); if(st.font==='pdf'){ hatLoading=null; hatKick() }
       if(doc.numPages!==PDF_PAGES) toast('Bu PDF '+doc.numPages+' sayfa; ayet yerleri 616 sayfalık Diyanet mushafına göre hazırlandı, bu dosyada kayabilir.',8000);
       else toast('“'+esc(f.name)+'” yüklendi. Mushaf sekmesinde sayfalar birebir gösteriliyor.',4000)
     }catch(err){ toast('Bu dosya PDF olarak açılamadı.',5000) } };
@@ -2263,6 +2268,81 @@ document.addEventListener('click',e=>{
   document.addEventListener('contextmenu',e=>{ if(e.target.closest('#pdfPage')) e.preventDefault() });
 })();
 addEventListener('resize',()=>{ if(!pdfOn()) return; clearTimeout(pdfDraw.rt); pdfDraw.rt=setTimeout(()=>pdfDraw(),200) });
+
+/* ---------- Diyanet mushafı hattı (PDF'teki yazı tipi) ----------
+   Yazı tipi, kullanıcının cihazında kayıtlı mushaf PDF'inin içinden çıkarılır ve yalnızca o cihazda kullanılır
+   (internete/siteye konmaz). mushaf-hat.txt yalnızca her kelimedeki glif numaralarını ve PDF'teki yerlerini tutar. */
+const HAT_SRC=[{off:23960762,len:119636,out:461976,name:'TvHatA'},{off:24082270,len:27377,out:52058,name:'TvHatB'}];
+let hatReady=false, hatLoading=null, HATW=null;
+const HAT_CLS=['','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','tk','tq','wq','tn'];
+async function hatInflate(u8){ const ds=new DecompressionStream('deflate'); const s=new Blob([u8]).stream().pipeThrough(ds); return new Uint8Array(await new Response(s).arrayBuffer()) }
+function hatOTF(cff,name){ // CFF'i en sade OpenType kabına koy: glif n → U+E000+n
+  const dv=new DataView(cff.buffer,cff.byteOffset,cff.byteLength);
+  // glif sayısı: CharStrings INDEX sayısı (Top DICT'ten)
+  const rdIndex=o=>{ const n=dv.getUint16(o); if(!n) return {n,end:o+2,items:[]}; const os=dv.getUint8(o+2); const off=k=>{let v=0;for(let j=0;j<os;j++) v=v*256+dv.getUint8(o+3+k*os+j);return v};
+    const base=o+3+(n+1)*os-1, items=[]; for(let k=0;k<n;k++) items.push([base+off(k),base+off(k+1)]); return {n,end:base+off(n),items} };
+  const hdr=dv.getUint8(2), nameI=rdIndex(hdr), topI=rdIndex(nameI.end);
+  const [ts,te]=topI.items[0]; let p=ts, st=[], cs=0;
+  while(p<te){ const b=dv.getUint8(p);
+    if(b<=21){ let op=b; p++; if(b===12){ op=1200+dv.getUint8(p); p++ } if(op===17) cs=st[st.length-1]; st=[]; continue }
+    if(b===28){ st.push(dv.getInt16(p+1)); p+=3 } else if(b===29){ st.push(dv.getInt32(p+1)); p+=5 } else if(b===30){ p++; while(p<te){ const x=dv.getUint8(p++); if((x&15)===15||(x>>4)===15) break } st.push(0) }
+    else if(b>=32&&b<=246){ st.push(b-139); p++ } else if(b<=250){ st.push((b-247)*256+dv.getUint8(p+1)+108); p+=2 } else if(b<=254){ st.push(-(b-251)*256-dv.getUint8(p+1)-108); p+=2 } else p++ }
+  const nG=dv.getUint16(cs);
+  const T={}; const u16=(a,v,o)=>a.setUint16(o,v), i16=(a,v,o)=>a.setInt16(o,v), u32=(a,v,o)=>a.setUint32(o,v>>>0);
+  const tbl=(len,fill)=>{ const b=new ArrayBuffer(len), d=new DataView(b); fill(d); return new Uint8Array(b) };
+  T['CFF ']=cff;
+  T.head=tbl(54,d=>{ u32(d,0x00010000,0); u32(d,0x00010000,4); u32(d,0x5F0F3CF5,12); u16(d,3,16); u16(d,1000,18); i16(d,-1000,36); i16(d,-1000,38); i16(d,2000,40); i16(d,1500,42); u16(d,8,46); i16(d,2,48) });
+  T.hhea=tbl(36,d=>{ u32(d,0x00010000,0); i16(d,1000,4); i16(d,-500,6); u16(d,1000,10); i16(d,1,18); u16(d,nG,34) });
+  T.maxp=tbl(6,d=>{ u32(d,0x00005000,0); u16(d,nG,4) });
+  T.hmtx=new Uint8Array(nG*4);
+  T.post=tbl(32,d=>{ u32(d,0x00030000,0); i16(d,-100,8); i16(d,50,10) });
+  T['OS/2']=tbl(96,d=>{ u16(d,4,0); i16(d,500,2); u16(d,400,4); u16(d,5,6); d.setUint8(58,78);d.setUint8(59,79);d.setUint8(60,78);d.setUint8(61,69); u16(d,0x40,62); u16(d,0xE000,64); u16(d,Math.min(0xFFFF,0xE000+nG),66); i16(d,1000,68); i16(d,-500,70); u16(d,1500,74); u16(d,800,76) });
+  // cmap biçim 4: U+E001.. → glif 1..
+  T.cmap=tbl(12+32,d=>{ u16(d,0,0); u16(d,1,2); u16(d,3,4); u16(d,1,6); u32(d,12,8); const o=12; u16(d,4,o); u16(d,32,o+2); u16(d,0,o+4); u16(d,4,o+6); u16(d,4,o+8); u16(d,1,o+10); u16(d,0,o+12);
+    u16(d,0xE000+nG-1,o+14); u16(d,0xFFFF,o+16); u16(d,0,o+18); u16(d,0xE001,o+20); u16(d,0xFFFF,o+22); u16(d,(0x10000-0xE000)&0xFFFF,o+24); u16(d,1,o+26); u16(d,0,o+28); u16(d,0,o+30) });
+  const nm=[[1,name],[2,'Regular'],[4,name],[6,name]], strs=nm.map(x=>{ const s=x[1]; const b=new Uint8Array(s.length*2); for(let k=0;k<s.length;k++){ b[2*k]=s.charCodeAt(k)>>8; b[2*k+1]=s.charCodeAt(k)&255 } return b });
+  const sOff=6+12*nm.length; let sl=0; strs.forEach(b=>sl+=b.length);
+  T.name=tbl(sOff+sl,d=>{ u16(d,0,0); u16(d,nm.length,2); u16(d,sOff,4); let q=0; nm.forEach((x,k)=>{ const o=6+12*k; u16(d,3,o); u16(d,1,o+2); u16(d,0x409,o+4); u16(d,x[0],o+6); u16(d,strs[k].length,o+8); u16(d,q,o+10); q+=strs[k].length }); let w=sOff; strs.forEach(b=>{ for(const x of b) d.setUint8(w++,x) }) });
+  const tags=Object.keys(T).sort(), nt=tags.length; let off=12+16*nt; const pad=n=>(n+3)&~3;
+  let total=off; tags.forEach(t=>total+=pad(T[t].length));
+  const out=new Uint8Array(total), od=new DataView(out.buffer);
+  u32(od,0x4F54544F,0); u16(od,nt,4); let es=1,ps=0; while(es*2<=nt){es*=2;ps++} u16(od,es*16,6); u16(od,ps,8); u16(od,nt*16-es*16,10);
+  const csum=b=>{ let s=0; const n=pad(b.length), x=new Uint8Array(n); x.set(b); const v=new DataView(x.buffer); for(let k=0;k<n;k+=4) s=(s+v.getUint32(k))>>>0; return s };
+  tags.forEach((t,k)=>{ const r=12+16*k; for(let j=0;j<4;j++) od.setUint8(r+j,t.charCodeAt(j)); u32(od,csum(T[t]),r+4); u32(od,off,r+8); u32(od,T[t].length,r+12); out.set(T[t],off); off+=pad(T[t].length) });
+  const hi=12+16*tags.indexOf('head'), ho=od.getUint32(hi+8); u32(od,(0xB1B0AFBA-csum(out))>>>0,ho+8);
+  return out;
+}
+async function hatFromPdf(buf){ // PDF'in içindeki yazı tiplerini çıkar ve yükle
+  const u8=new Uint8Array(buf); const fonts=[];
+  for(const s of HAT_SRC){
+    let p=s.off; const head=new TextDecoder('latin1').decode(u8.subarray(p,p+200)); const k=head.indexOf('stream'); if(k<0||!/CIDFontType0C/.test(head)) throw new Error('pdf');
+    p+=k+6; while(u8[p]===13||u8[p]===10) p++;
+    const cff=await hatInflate(u8.subarray(p,p+s.len)); if(cff.length!==s.out) throw new Error('pdf');
+    const ff=new FontFace(s.name,hatOTF(cff,s.name)); await ff.load(); document.fonts.add(ff); fonts.push(ff);
+  }
+  return fonts;
+}
+function hatKick(){ if(hatKick.t) return; hatKick.t=1; hatEnsure().then(()=>{ hatKick.t=0; renderPage(); try{ $('#prevAr').innerHTML=ayahAr(idxOf(1,2)) }catch(e){} }).catch(e=>{ hatKick.t=0; if(String(e&&e.message)==='nofile'){ toast('Diyanet hattı için önce mushaf PDF\'ini seçin: Ayarlar → “Mushaf sekmesinde sayfalar”.',6000) } else toast('Diyanet hattı bu PDF\'ten çıkarılamadı. 616 sayfalık Diyanet mushafı PDF\'i gerekiyor.',6000) }) }
+function hatData(){ if(HATW) return Promise.resolve(); return fetch('mushaf-hat.txt').then(r=>r.ok?r.text():Promise.reject()).then(t=>{ HATW=t.split('\n') }) }
+async function hatEnsure(){
+  if(hatReady) return true;
+  if(!hatLoading) hatLoading=(async()=>{ const r=await pdfStoreGet(); if(!r||!r.buf) throw new Error('nofile'); await Promise.all([hatFromPdf(r.buf),hatData()]); hatReady=true; arCache.clear(); return true })().catch(e=>{ hatLoading=null; throw e });
+  return hatLoading;
+}
+function hatWordSVG(code,fid){
+  if(!code) return '';
+  const w=parseInt(code.slice(0,3),36)/100, hs=parseInt(code.slice(3,5),36)/100; let t='';
+  for(let k=5;k+8<=code.length;k+=8){
+    const g=parseInt(code.slice(k,k+2),36), x=parseInt(code.slice(k+2,k+5),36)-200, y=155-(parseInt(code.slice(k+5,k+7),36)-600), c=HAT_CLS[parseInt(code[k+7],36)]||'';
+    t+='<text '+(hs!==1?'transform="matrix('+hs+' 0 0 1 '+x+' '+y+')"':'x="'+x+'" y="'+y+'"')+(c?' class="'+c+'"'+(c[0]==='r'?' data-r="'+c.slice(1)+'"':c==='tk'||c==='tq'?' data-r="'+c+'"':''):'')+'>&#x'+(0xE000+g).toString(16)+';</text>';
+  }
+  return '<svg class="hw" viewBox="0 0 '+Math.round(w*100)+' 220" style="width:'+w.toFixed(2)+'em;font-family:'+(fid?'TvHatB':'TvHatA')+'" aria-hidden="true"><g style="font-size:100px">'+t+'</g></svg>';
+}
+function hatAyah(i){ // ayeti PDF'teki kelimelerle diz
+  const L=HATW[i]; if(L==null) return null; const ws=L.split('|'); const fid=A[i][2]===2&&A[i][0]===2?1:0;
+  const tx=[]; { const f=A[i][5]; let t=''; for(const x of f) if(typeof x==='string') t+=x; t.split(' ').filter(Boolean).forEach(w=>tx.push(w)) }
+  return ws.map((c,w)=>'<span class="w" data-w="'+w+'" title="'+esc((tx[w]||'').replace(/[ۖ-ۜ‌]/g,''))+'">'+hatWordSVG(c,fid)+'</span>').join(' ');
+}
 
 /* ---------- boot ---------- */
 const hm=location.hash.match(/^#sayfa-(\d+)$/); if(hm) st.page=Math.max(1,Math.min(604,+hm[1]));

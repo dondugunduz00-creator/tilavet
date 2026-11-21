@@ -1,6 +1,6 @@
 /* Tilâvet çevrimdışı önbellek */
-const V='tilavet-v36';
-const MUSHAF='tilavet-mushaf-2'; // PDF.js ve kelime yerleri; dosyalar değişirse numarayı artırın
+const V='tilavet-v37';
+const MUSHAF='tilavet-mushaf-3'; // PDF.js ve kelime yerleri; dosyalar değişirse numarayı artırın
 const SHELL=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./apple-touch-icon.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(SHELL.map(u=>new Request(u,{cache:'reload'})))).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k.startsWith('tilavet-v')&&k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
@@ -14,7 +14,7 @@ self.addEventListener('fetch',e=>{
       return;
     }
     // mushaf (PDF) görünümü dosyaları: ilk kullanımda indirilip saklanır, sonra internetsiz çalışır
-    if(/\/vendor\/pdfjs\/|\/mushaf-kelime\.txt$/.test(u.pathname)){
+    if(/\/vendor\/pdfjs\/|\/mushaf-(kelime|hat)\.txt$/.test(u.pathname)){
       e.respondWith(caches.open(MUSHAF).then(c=>c.match(r).then(m=>m||fetch(r).then(res=>{ if(res.ok) c.put(r,res.clone()); return res }))));
       return;
     }
