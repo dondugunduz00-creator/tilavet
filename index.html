@@ -2276,7 +2276,10 @@ addEventListener('resize',()=>{ if(!pdfOn()) return; clearTimeout(pdfDraw.rt); p
 /* ---------- Diyanet mushafı hattı (PDF'teki yazı tipi) ----------
    Yazı tipi, kullanıcının cihazında kayıtlı mushaf PDF'inin içinden çıkarılır ve yalnızca o cihazda kullanılır
    (internete/siteye konmaz). mushaf-hat.txt yalnızca her kelimedeki glif numaralarını ve PDF'teki yerlerini tutar. */
-const HAT_SRC=[{off:23960762,len:119636,out:461976,name:'TvHatA'},{off:24082270,len:27377,out:52058,name:'TvHatB'}];
+const HAT_SRC=[{off:23960762,len:119636,out:461976,name:'TvHatA',probe:12},{off:24082270,len:27377,out:52058,name:'TvHatB'}];
+function hatProbe(fam,gid){ // yazı tipi bu cihazda gerçekten çiziliyor mu
+  try{ const c=document.createElement('canvas'); c.width=c.height=80; const x=c.getContext('2d'); x.fillStyle='#000'; x.font='60px "'+fam+'"'; x.fillText(String.fromCharCode(0xE000+gid),10,55);
+    const d=x.getImageData(0,0,80,80).data; let n=0; for(let k=3;k<d.length;k+=4) if(d[k]>40) n++; return n>30 }catch(e){ return true } }
 let hatReady=false, hatLoading=null, HATW=null;
 const HAT_CLS=['','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','tk','tq','wq','tn'];
 async function hatInflate(u8){ const ds=new DecompressionStream('deflate'); const s=new Blob([u8]).stream().pipeThrough(ds); return new Uint8Array(await new Response(s).arrayBuffer()) }
@@ -2298,11 +2301,11 @@ function hatOTF(cff,name){ // CFF'i en sade OpenType kabına koy: glif n → U+E
   T.head=tbl(54,d=>{ u32(d,0x00010000,0); u32(d,0x00010000,4); u32(d,0x5F0F3CF5,12); u16(d,3,16); u16(d,1000,18); i16(d,-1000,36); i16(d,-1000,38); i16(d,2000,40); i16(d,1500,42); u16(d,8,46); i16(d,2,48) });
   T.hhea=tbl(36,d=>{ u32(d,0x00010000,0); i16(d,1000,4); i16(d,-500,6); u16(d,1000,10); i16(d,1,18); u16(d,nG,34) });
   T.maxp=tbl(6,d=>{ u32(d,0x00005000,0); u16(d,nG,4) });
-  T.hmtx=new Uint8Array(nG*4);
+  T.hmtx=tbl(nG*4,d=>{ for(let k=0;k<nG;k++) u16(d,1000,k*4) });   // her glife genişlik (Safari sıfır genişlikli yazıyı çizmeyebiliyor)
   T.post=tbl(32,d=>{ u32(d,0x00030000,0); i16(d,-100,8); i16(d,50,10) });
   T['OS/2']=tbl(96,d=>{ u16(d,4,0); i16(d,500,2); u16(d,400,4); u16(d,5,6); d.setUint8(58,78);d.setUint8(59,79);d.setUint8(60,78);d.setUint8(61,69); u16(d,0x40,62); u16(d,0xE000,64); u16(d,Math.min(0xFFFF,0xE000+nG),66); i16(d,1000,68); i16(d,-500,70); u16(d,1500,74); u16(d,800,76) });
   // cmap biçim 4: U+E001.. → glif 1..
-  T.cmap=tbl(12+32,d=>{ u16(d,0,0); u16(d,1,2); u16(d,3,4); u16(d,1,6); u32(d,12,8); const o=12; u16(d,4,o); u16(d,32,o+2); u16(d,0,o+4); u16(d,4,o+6); u16(d,4,o+8); u16(d,1,o+10); u16(d,0,o+12);
+  T.cmap=tbl(20+32,d=>{ u16(d,0,0); u16(d,2,2); u16(d,0,4); u16(d,3,6); u32(d,20,8); u16(d,3,12); u16(d,1,14); u32(d,20,16); const o=20; u16(d,4,o); u16(d,32,o+2); u16(d,0,o+4); u16(d,4,o+6); u16(d,4,o+8); u16(d,1,o+10); u16(d,0,o+12);
     u16(d,0xE000+nG-1,o+14); u16(d,0xFFFF,o+16); u16(d,0,o+18); u16(d,0xE001,o+20); u16(d,0xFFFF,o+22); u16(d,(0x10000-0xE000)&0xFFFF,o+24); u16(d,1,o+26); u16(d,0,o+28); u16(d,0,o+30) });
   const nm=[[1,name],[2,'Regular'],[4,name],[6,name]], strs=nm.map(x=>{ const s=x[1]; const b=new Uint8Array(s.length*2); for(let k=0;k<s.length;k++){ b[2*k]=s.charCodeAt(k)>>8; b[2*k+1]=s.charCodeAt(k)&255 } return b });
   const sOff=6+12*nm.length; let sl=0; strs.forEach(b=>sl+=b.length);
@@ -2323,10 +2326,11 @@ async function hatFromPdf(buf){ // PDF'in içindeki yazı tiplerini çıkar ve y
     p+=k+6; while(u8[p]===13||u8[p]===10) p++;
     const cff=await hatInflate(u8.subarray(p,p+s.len)); if(cff.length!==s.out) throw new Error('pdf');
     const ff=new FontFace(s.name,hatOTF(cff,s.name)); await ff.load(); document.fonts.add(ff); fonts.push(ff);
+    if(s.probe&&!hatProbe(s.name,s.probe)) throw new Error('render');
   }
   return fonts;
 }
-function hatKick(){ if(hatKick.t) return; hatKick.t=1; hatEnsure().then(()=>{ hatKick.t=0; renderPage(); try{ $('#prevAr').innerHTML=ayahAr(idxOf(1,2)) }catch(e){} }).catch(e=>{ hatKick.t=0; if(String(e&&e.message)==='nofile'){ toast('Diyanet hattı için önce mushaf PDF\'ini seçin: Ayarlar → “Mushaf sekmesinde sayfalar”.',6000) } else toast('Diyanet hattı bu PDF\'ten çıkarılamadı. 616 sayfalık Diyanet mushafı PDF\'i gerekiyor.',6000) }) }
+function hatKick(){ if(hatKick.t) return; hatKick.t=1; hatEnsure().then(()=>{ hatKick.t=0; renderPage(); try{ $('#prevAr').innerHTML=ayahAr(idxOf(1,2)) }catch(e){} }).catch(e=>{ hatKick.t=0; if(String(e&&e.message)==='nofile'){ toast('Diyanet hattı için önce mushaf PDF\'ini seçin: Ayarlar → “Mushaf sekmesinde sayfalar”.',6000) } else if(String(e&&e.message)==='render'){ toast('Diyanet hattı bu cihazın tarayıcısında çizilemedi; şimdilik Türk nesih hattı gösteriliyor.',7000) } else toast('Diyanet hattı bu PDF\'ten çıkarılamadı. 616 sayfalık Diyanet mushafı PDF\'i gerekiyor.',6000) }) }
 function hatData(){ if(HATW) return Promise.resolve(); return fetch('mushaf-hat.txt').then(r=>r.ok?r.text():Promise.reject()).then(t=>{ HATW=t.split('\n') }) }
 async function hatEnsure(){
   if(hatReady) return true;
