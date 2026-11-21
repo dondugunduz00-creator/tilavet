@@ -1,6 +1,7 @@
 /* Tilâvet çevrimdışı önbellek */
-const V='tilavet-v34';
-const SHELL=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./apple-touch-icon.png','./vendor/pdfjs/pdf.min.mjs','./vendor/pdfjs/pdf.worker.min.mjs'];
+const V='tilavet-v35';
+const MUSHAF='tilavet-mushaf-1'; // PDF.js ve kelime yerleri; dosyalar değişirse numarayı artırın
+const SHELL=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./apple-touch-icon.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(SHELL.map(u=>new Request(u,{cache:'reload'})))).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k.startsWith('tilavet-v')&&k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',e=>{
@@ -10,6 +11,11 @@ self.addEventListener('fetch',e=>{
     // sayfa: önce ağ (güncelleme gelsin), yoksa önbellek
     if(r.mode==='navigate'||u.pathname.endsWith('/')||u.pathname.endsWith('index.html')){
       e.respondWith(fetch(r,{cache:'no-store'}).then(res=>{const c=res.clone(); caches.open(V).then(x=>x.put('./index.html',c)); return res}).catch(()=>caches.match('./index.html')));
+      return;
+    }
+    // mushaf (PDF) görünümü dosyaları: ilk kullanımda indirilip saklanır, sonra internetsiz çalışır
+    if(/\/vendor\/pdfjs\/|\/mushaf-kelime\.txt$/.test(u.pathname)){
+      e.respondWith(caches.open(MUSHAF).then(c=>c.match(r).then(m=>m||fetch(r).then(res=>{ if(res.ok) c.put(r,res.clone()); return res }))));
       return;
     }
     e.respondWith(caches.match(r).then(m=>m||fetch(r)));

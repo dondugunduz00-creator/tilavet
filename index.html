@@ -173,6 +173,10 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .pdfhl i{position:absolute;border-radius:5px}
 .pdfhl i.sel{background:rgba(214,160,20,.20);box-shadow:inset 0 0 0 1.5px rgba(184,134,11,.55)}
 .pdfhl i.playing{background:rgba(16,122,92,.17);box-shadow:inset 0 -2.5px 0 rgba(16,122,92,.75)}
+.pdfptr{position:absolute;z-index:2;pointer-events:none;border-radius:7px;background:rgba(255,193,7,.32);box-shadow:0 0 0 2px rgba(224,138,0,.95);transition:left .16s ease,top .24s ease,width .16s ease,height .16s ease,opacity .2s}
+.pdfptr::before{content:"";position:absolute;left:50%;top:-12px;transform:translateX(-50%);border:7px solid transparent;border-top:9px solid #e08a00;border-bottom:0}
+.pdfptr.wait{opacity:.5}
+@media (prefers-reduced-motion:reduce){.pdfptr{transition:none}}
 .pdf-ld{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#7a6a45;font-size:14px}
 .pdfpage.loading .pdf-ld{display:flex}
 .runhead{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12.5px;color:var(--muted);margin-bottom:14px;font-variant-numeric:tabular-nums}
@@ -1346,7 +1350,7 @@ function szToggle(open){
 }
 function szStep(k,d){
   if(k==='rate'){ snapRate(); const i=RATES.indexOf(st.rate), j=Math.max(0,Math.min(RATES.length-1,i+(d==='+'?1:-1))); st.rate=RATES[j]; save(); applyRate(); szPaint(); try{ $('#sRate').value=String(st.rate) }catch(e){} return }
-  if(k==='ar'&&pdfOn()){ const [lo,hi,sp]=SZ.pz, v=Math.max(lo,Math.min(hi,(st.pz||100)+(d==='+'?sp:-sp))); if(v===st.pz) return; st.pz=v; save(); szPaint(); pdfDraw(); return }
+  if(k==='ar'&&pdfOn()){ const [lo,hi,sp]=SZ.pz, v=Math.max(lo,Math.min(hi,(st.pz||100)+(d==='+'?sp:-sp))); if(v===st.pz) return; st.pz=v; save(); szPaint(); pdfDraw(); setTimeout(()=>{ const e=document.getElementById('pdfPtr'); if(e&&!e.hidden) pdfFollow(e); else pdfKeep() },60); return }
   const [lo,hi,step]=SZ[k]; const v=Math.max(lo,Math.min(hi,st[k]+(d==='+'?step:-step))); if(v===st[k]) return;
   // okunan yer ekranda kaysın istemiyoruz: ekrandaki ilk ayeti sabit tut
   const vs=[...document.querySelectorAll('#pageEl .v, #pageEl .ay')]; const top=($('.bar')||{}).getBoundingClientRect?$('.bar').getBoundingClientRect().bottom:0;
@@ -1620,6 +1624,7 @@ function playBasmala(next){
 }
 function basWord(k){
   if(k===P.bw) return; P.bw=k;
+  if(pdfShown!=null&&pdfOn()){ pdfPtrBas(A[P.i][0],k); return }
   document.querySelectorAll('.basmala .hl-word,.basmala-ok .hl-word').forEach(e=>e.classList.remove('hl-word'));
   const x=k>0?realWords(0)[k-1]:null; if(!x) return;
   const b=document.querySelector('.basmala[data-bs="'+A[P.i][0]+'"]'); if(!b) return;
@@ -1645,6 +1650,12 @@ function preUpdate(){
       const last=m.seg[m.seg.length-1][2]; if(ms>=last+250){ finishPre(); return }
     }
   }
+  else if(!m){ // kelime zamanları yoksa besmeleyi kelime uzunluklarına göre paylaştır
+    const rw=realWords(0), W=rw.map(x=>x.letters+x.madd*1.5+1), tot=W.reduce((a,b)=>a+b,0);
+    const lead=Math.min(.5,d*.05), frac=(aud.currentTime-lead)/Math.max(.1,d-lead*2); let acc=0,k=frac<0?-1:rw.length;
+    if(frac>=0) for(let j=0;j<W.length;j++){ acc+=W[j]/tot; if(frac<acc){ k=j+1; break } }
+    basWord(k);
+  }
   if(aud.currentTime>=d-0.06) finishPre();
 }
 function startAyahMode(i){
@@ -1669,7 +1680,7 @@ function enterAyah(i,first){
   HL={i,w:null,m:null}; applyHL(); markPlaying(); updatePlayer(); setMediaSession();
 }
 function markPlaying(){
-  if(pdfShown!=null&&pdfOn()){ pdfHlPaint(); if(P.on) requestAnimationFrame(pdfKeep); return }
+  if(pdfShown!=null&&pdfOn()){ pdfHlPaint(); if(P.on&&!PW) requestAnimationFrame(pdfKeep); return }
   document.querySelectorAll('.playing').forEach(e=>e.classList.remove('playing'));
   if(!P.on||P.i<0) return;
   document.querySelectorAll('.ay[data-i="'+P.i+'"]').forEach(x=>x.classList.add('playing'));
@@ -1737,6 +1748,7 @@ function setWord(k){
   if(k===P.word) return; P.word=k;
   const rw=realWords(P.i); if(k>rw.length) k=rw.length; const x=k>0?rw[k-1]:null;
   HL={i:P.i,w:x?x.w:null,m:null}; applyHL();
+  if(pdfShown!=null&&pdfOn()) pdfPtrTo(P.i,x);
   if(x&&x.also!=null) document.querySelectorAll('.ay[data-i="'+P.i+'"] .w[data-w="'+x.also+'"],.v[data-i="'+P.i+'"] .w[data-w="'+x.also+'"],.dock-in[data-i="'+P.i+'"] .w[data-w="'+x.also+'"]').forEach(e=>e.classList.add('hl-word'));
   if(x){ const el=document.querySelector('.ay[data-i="'+P.i+'"] .w[data-w="'+x.w+'"],.v[data-i="'+P.i+'"] .ar .w[data-w="'+x.w+'"]'); if(el) keepVisible(el)
     const dw=document.querySelector('.dock-in[data-i="'+P.i+'"] .okn .w[data-w="'+x.w+'"]'), db=document.querySelector('.dock-body'); if(dw&&db){ const a=dw.getBoundingClientRect(), b=db.getBoundingClientRect(); if(a.top<b.top||a.bottom>b.bottom) db.scrollTop+=a.top-b.top-8 } }
@@ -1993,16 +2005,67 @@ function pdfRect(r){ // [y, x0, x1, boy] → yüzde
   const [y,x0,x1,sz]=r, top=y+sz*1.32, bot=y-sz*.28;
   return 'left:'+(x0-3)/PDF_W*100+'%;width:'+(x1-x0+6)/PDF_W*100+'%;top:'+(PDF_H-top)/PDF_H*100+'%;height:'+(top-bot)/PDF_H*100+'%';
 }
+/* kelime kelime takip: her kelimenin PDF'teki yeri (mushaf-kelime.txt; satır sırası + yatay aralık) */
+let PW=null, PWB=null, pwLoading=null;
+function pwLoad(){
+  if(PW) return Promise.resolve();
+  if(!pwLoading) pwLoading=fetch('mushaf-kelime.txt').then(r=>r.ok?r.text():Promise.reject(r.status)).then(t=>{
+    const k=t.indexOf('\n#'); PW=t.slice(0,k).split('\n'); PWB={};
+    t.slice(k+2).trim().split(';').forEach(x=>{ const j=x.indexOf(':'); PWB[+x.slice(0,j)]=x.slice(j+1) }); P.word=-2 }).catch(()=>{ pwLoading=null });
+  return pwLoading;
+}
+function pwBox(s,w){ const c=s&&s.substr(w*5,5); if(!c||c.length<5||c==='-----') return null; return [parseInt(c[0],36),parseInt(c.slice(1,3),36),parseInt(c.slice(3,5),36)] }
+function pdfWordRect(i,w){ const b=PW&&pwBox(PW[i],w); if(!b) return null; const r=PR[i][b[0]]; return r?[r[0],b[1],b[2],r[3]]:null }
+function pdfPtrPlace(r,wait){
+  const el=document.getElementById('pdfPtr'); if(!el) return;
+  if(!r){ el.hidden=true; return }
+  const [y,x0,x1,sz]=r, top=y+sz*1.3, bot=y-sz*.26;
+  const nt=(PDF_H-top)/PDF_H*100+'%', jump=el.hidden||el.style.top!==nt;   // satır değişince kaydırmadan doğrudan geç
+  if(jump){ el.style.transition='none' }
+  el.style.left=(x0-2)/PDF_W*100+'%'; el.style.width=(x1-x0+4)/PDF_W*100+'%'; el.style.top=(PDF_H-top)/PDF_H*100+'%'; el.style.height=(top-bot)/PDF_H*100+'%';
+  el.classList.toggle('wait',!!wait); el.hidden=false;
+  if(jump){ void el.offsetWidth; requestAnimationFrame(()=>{ el.style.transition='' }) }
+  // işaretçi kayarak gelirken DOM'daki yeri eskidir; hedef konumu hesaplayıp ona göre kaydır
+  const pg=document.getElementById('pdfPage'), pr=pg.getBoundingClientRect();
+  const tr={left:pr.left+(x0-2)/PDF_W*pr.width, right:pr.left+(x1+2)/PDF_W*pr.width, top:pr.top+(PDF_H-top)/PDF_H*pr.height, bottom:pr.top+(PDF_H-bot)/PDF_H*pr.height};
+  tr.width=tr.right-tr.left; tr.height=tr.bottom-tr.top; pdfFollow(el,tr);
+}
+function pdfPtrTo(i,x){ // okunan kelimeye işaretçi
+  if(!PW){ pwLoad(); return }
+  if(i<0||PG[i]!==pdfShown){ pdfPtrPlace(null); return }
+  let r=null, wait=false;
+  if(x){ r=pdfWordRect(i,x.w); if(r&&x.also!=null){ const r2=pdfWordRect(i,x.also); if(r2&&r2[0]===r[0]) r=[r[0],Math.min(r[1],r2[1]),Math.max(r[2],r2[2]),r[3]] } }
+  else { const rw=realWords(i); if(rw.length){ r=pdfWordRect(i,rw[0].w); wait=true } }
+  if(r) pdfPtrPlace(r,wait);
+}
+function pdfPtrBas(s,k){ // besmele okunurken
+  if(!PW){ pwLoad(); return }
+  const b=PBAS[s]; if(!b||b[0]!==pdfShown){ pdfPtrPlace(null); return }
+  const rw=realWords(0), x=k>0?rw[Math.min(k,rw.length)-1]:rw[0], c=pwBox(PWB[s],x.w), L=b[1][0];
+  pdfPtrPlace(c?[L[0],c[1],c[2],L[3]]:null,k<=0);
+}
+function pdfFollow(el,tr){ // işaretçi her zaman görünsün: dikeyde sayfa, büyütülmüşse yatayda da kaydır
+  const a=tr||el.getBoundingClientRect();
+  keepVisible({getBoundingClientRect:()=>a});
+  const w=el.closest('.pdfwrap'); if(!w||w.scrollWidth<=w.clientWidth+2) return;
+  const b=w.getBoundingClientRect(), m=Math.min(b.width*.14,60);
+  if(a.left<b.left+m&&a.width<b.width-2*m||a.right>b.right-m||a.right<b.left+m){
+    // sağdan sola okunuyor: kelime görünür alanın sağ tarafına yakın dursun, sıradaki kelimeler de görünsün
+    const dx=a.right-(b.right-m-b.width*.08);   // kelimenin başı (sağ ucu) sağ kenara yakın dursun
+    w.scrollTo({left:w.scrollLeft+dx,behavior:Math.abs(dx)>b.width*.45?'auto':'smooth'});   // satır değişince beklemeden atla
+  }
+}
 function pdfHlPaint(){
   const hl=document.getElementById('pdfHl'); if(!hl||pdfShown==null) return;
   const q=pdfShown; let h='';
   const add=(rs,cls,i)=>rs.forEach(r=>{ h+='<i class="'+cls+'"'+(i!=null?' data-pi="'+i+'"':'')+' style="'+pdfRect(r)+'"></i>' });
-  if(sel>=0&&PG[sel]===q&&!(P.on&&P.i===sel&&P.mode!=='pre')) add(PR[sel],'sel',sel);
+  if(sel>=0&&PG[sel]===q&&!(P.on&&P.i===sel)) add(PR[sel],'sel',sel);
   if(P.on&&P.i>=0){
     if(P.mode==='pre'){ const b=PBAS[A[P.i][0]]; if(b&&b[0]===q) add(b[1],'playing') }
     else if(PG[P.i]===q) add(PR[P.i],'playing',P.i);
   }
   hl.innerHTML=h;
+  if(!(P.on&&P.i>=0)) pdfPtrPlace(null); else if(P.mode!=='pre'&&PG[P.i]!==q) pdfPtrPlace(null);
 }
 function pdfKeep(){ const e=document.querySelector('#pdfHl .playing'); if(e) keepVisible(e) }
 async function pdfDraw(force){
@@ -2010,7 +2073,7 @@ async function pdfDraw(force){
   const q=pdfQ, gen=++pdfGen, bw=pdfBaseW(), w=Math.round(bw*(st.pz||100)/100);
   box.style.width=w+'px'; box.style.height=Math.round(w*PDF_H/PDF_W)+'px';
   const wrap=box.parentElement; if(wrap&&w>wrap.clientWidth) wrap.scrollLeft=(w-wrap.clientWidth)/2*(getComputedStyle(wrap).direction==='rtl'?-1:1);
-  pdfShown=q; pdfHlPaint();
+  pdfShown=q; pdfHlPaint(); pwLoad();
   const put=c=>{ const old=box.querySelector('canvas'); if(old!==c){ if(old) old.remove(); box.insertBefore(c,box.firstChild) } box.classList.remove('loading') };
   const hit=pdfCache.get(q); if(hit&&hit.w===w&&!force){ put(hit.c); pdfPre(q,w); return }
   box.classList.add('loading');
@@ -2042,7 +2105,7 @@ function pdfHtml(p){
   $('#locSurah').textContent=ss.map(s=>S[s-1][0]).join(' · ');
   const ps=pdfPagesEnding(q), done=ps.length&&ps.every(x=>read.has(x));
   return '<div class="runhead"><span>'+first[3]+'. Cüz · '+ss.map(s=>S[s-1][0]+' Suresi').join(', ')+'</span><span class="pdf-src">Diyanet mushafı</span></div>'+
-    '<div class="pdfwrap"><div class="pdfpage loading" id="pdfPage" role="img" aria-label="Mushaf sayfası, '+esc(ss.map(s=>S[s-1][0]).join(', '))+'"><div class="pdfhl" id="pdfHl"></div><div class="pdf-ld">Sayfa hazırlanıyor…</div></div></div>'+
+    '<div class="pdfwrap"><div class="pdfpage loading" id="pdfPage" role="img" aria-label="Mushaf sayfası, '+esc(ss.map(s=>S[s-1][0]).join(', '))+'"><div class="pdfhl" id="pdfHl"></div><div class="pdfptr" id="pdfPtr" hidden></div><div class="pdf-ld">Sayfa hazırlanıyor…</div></div></div>'+
     '<div class="pfoot"><button class="done-btn'+(done?' is-done':'')+'" id="doneBtn">'+(done?'✓ Bu sayfayı okudunuz':'Okudum, sonraki sayfaya geç →')+'</button>'+
     '<div class="pgnav"><button class="ibtn" data-gq="'+(q-1)+'" '+(q<=2?'disabled':'')+'>Önceki sayfa</button><button class="ibtn" data-gq="'+(q+1)+'" '+(q>=606?'disabled':'')+'>Sonraki sayfa</button></div></div>';
 }
