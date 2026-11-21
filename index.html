@@ -663,7 +663,7 @@ return function(flat,surah,ayah){
       else { const j=nextPron(i); if(idgYW(i,j)){ cons=CONS[U[j].b]; u.c=(u.c&~31)|12 } }
     }
     if(b==='م'&&u.sk&&P(u.c)===14){}
-    if(cons&&!isHam&&b!=='ع'&&!(u.f||u.k||u.d||u.tn||u.sk||u.sh)&&!u.iq){ const j=nextPron(i); if(j>=0&&U[j].sh&&CONS[U[j].b]&&!(P(u.c)===10)){ cons=CONS[U[j].b]; U[j].half=true } }
+    if(cons&&!isHam&&b!=='ع'&&!(u.f||u.k||u.d||u.tn||u.sk||u.sh)&&!u.iq){ const j=nextPron(i); if(j>=0&&U[j].sh&&CONS[U[j].b]&&!(P(u.c)===10)){ cons=CONS[U[j].b]; U[j].half=true; if(U[j].b===b&&(wordOf[j]!==wordOf[i]||b!=='ل')&&!P(u.c)&&!P(U[j].c)){ u.c=(u.c&~31)|14; U[j].c=(U[j].c&~31)|14 } } }   // idğâm-ı misleyn: ekul lekum, idrib bi asâke, yudrikkum
     if(u.sk&&b==='م'){ const j=nextPron(i); if(j>=0&&U[j].sh&&U[j].b==='م') U[j].half=true }
     const isAllahL=b==='ل'&&u.sh&&U[i+1]&&U[i+1].b==='ه'&&(pu&&(pu.b==='ل'||pu.b==='ٱ'))&&isAllahW(wi);   // ٱللَّهْوِ / ٱللَّهَبِ değil
     const o0=out.length, allahHv=isAllahL&&(()=>{ const v=lastVowelAny(); return !v||!/[iıî]$/.test(v.t) })();   // lafza-i celâl: esreden sonra ince, öteki hâllerde kalın
@@ -761,7 +761,7 @@ const RULES=[null,
  ['İhfâ-i şefevî','Sakin mîmden sonra ب gelince mîm dudaklar hafifçe kapalı, genizden gizlenerek okunur.','تَرۡمِيهِم بِحِجَارَةٍ'],
  ['İdğâm-ı maa’l-ğunne','Sakin nûn veya tenvinden sonra ي ن م و gelirse nûn bu harfe katılır ve genizden okunur.','مَن يَقُولُ'],
  ['İdğâm-ı bilâ-ğunne','Sakin nûn veya tenvinden sonra ل veya ر gelirse nûn bu harfe katılır, ğunnesiz okunur.','مِن رَّبِّهِمۡ'],
- ['İdğâm-ı misleyn','Sakin mîmden sonra mîm gelirse ikisi birleşir ve ğunneyle okunur.','لَهُم مَّا'],
+ ['İdğâm-ı misleyn','Sakin bir harften sonra aynı harf gelirse ikisi birleşir, şeddeli tek harf gibi okunur; mîmde ğunneyle.','لَهُم مَّا'],
  ['İklâb','Sakin nûn veya tenvinden sonra ب gelirse nûn mîme çevrilir ve genizden okunur.','مِنۢ بَعۡدِ'],
  ['İdğâm-ı mütecâniseyn','Mahreçleri aynı, sıfatları farklı iki harften ilki ikincisine katılır (ör. ت ← د).','قَد تَّبَيَّنَ'],
  ['İdğâm-ı mütekâribeyn','Mahreçleri yakın iki harften ilki ikincisine katılır (ör. ق ← ك).','أَلَمۡ نَخۡلُقكُّم'],
@@ -986,8 +986,38 @@ function ayahAr(i){
   const f=A[i][5]; let chars=[];
   for(let k=0;k<f.length;k++){ const t=f[k]; let c=0; if(typeof f[k+1]==='number'){c=f[k+1];k++} for(const ch of t) chars.push([ch,c]) }
   if(st.imla==='tr') chars=trTurk(i,trImla(trAlef(i,chars))); else chars=chars.map(x=>x[0]==='ٮ'?['ى',x[1]]:x);
-  chars=arRaStop(chars); chars=arAllah(i,chars); chars=arLazim(chars); chars=arNida(chars); chars=arMeddFix(chars); chars=arFromOk(i,chars);
+  chars=arRaStop(chars); chars=arAllah(i,chars); chars=arLazim(chars); chars=arNida(chars); chars=arMeddFix(chars); chars=arFromOk(i,chars); chars=arIdgamFix(chars); chars=arMuq(i,chars);
   const h=spanify(chars); arCache.set(key,h); return h;
+}
+// hurûf-ı mukattaa: harfler arası ğunne / idğâm / ihfâ (okunuştaki gibi): Elif lâm mîm, Tâ sîm mîm, Kâf hâ yâ ayn sâd, Ayn sîn kâf, Tâ sîn
+function arMuq(i,chars){
+  if(A[i][1]!==1&&!(A[i][0]===42&&A[i][1]===2)) return chars;
+  let e=chars.findIndex(x=>x[0]===' '); if(e<0) e=chars.length;
+  const L=[]; for(let k=0;k<e;k++){ const c=chars[k][0]; if(c.length===1&&c!=='ـ'&&/[ء-ي]/.test(c)) L.push(k) }
+  const sk=L.map(k=>chars[k][0]).join('');
+  const MAP={'الم':{2:9},'المص':{2:9},'المر':{2:9},'طسم':{2:12},'طس':{1:10},'كهيعص':{3:10},'عسق':{0:10,1:10}};
+  const m=MAP[sk]; if(!m||!chars.slice(0,e).some(x=>x[0]==='\u0653')) return chars;   // اَلَمْ نَشْرَحْ değil
+  const out=chars.slice(); for(const [p,code] of Object.entries(m)){ const k=L[+p]; out[k]=[out[k][0],(out[k][1]&~31)|code] }
+  return out;
+}
+// verideki boşluklar: kelimeler arası idğâm-ı misleyn (قُل لَّكُمْ ، ٱضْرِب بِّعَصَاكَ) ve لِ'den sonraki lâm-ı ta'rif (لِلنَّاسِ)
+function arIdgamFix(chars){
+  const isL=c=>c.length===1&&c!=='ـ'&&/[ء-يٱٮ]/.test(c), HR=/[\u064B-\u0652\u0656\u0657\u0670]/;
+  const U=[]; chars.forEach((x,k)=>{ if(x[0]===' ') U.push({b:' ',k:[k]}); else if(isL(x[0])) U.push({b:x[0],k:[k]}); else if(U.length) U[U.length-1].k.push(k) });
+  const marks=u=>u.k.slice(1).map(k=>chars[k][0]).join('');
+  let out=null; const set=(u,p)=>{ if(!out) out=chars.slice(); u.k.forEach(k=>{ const c=out[k][1]; out[k]=[out[k][0],(c&~31)|p] }) };
+  for(let j=0;j<U.length;j++){ const u=U[j]; if(u.b===' '||'اىوٱيـنع'.includes(u.b)) continue;
+    const m=marks(u), sk=m.includes('\u0652'); if(/[\u064B-\u0651\u0656\u0657\u0670]/.test(m)) continue;
+    let q=j+1, cross=false; while(q<U.length&&U[q].b===' '){ q++; cross=true }
+    const v=U[q]; if(!v) continue; const vm=marks(v);
+    const pv=chars[u.k[0]][1]&31, pw=chars[v.k[0]][1]&31;
+    // Medine: ilk harf yalın + ikinci şeddeli; Türk imlâsı: ilk harf cezimli + ikinci harekeli (اضْرِبْ بِعَصَاكَ ، يُدْرِكْكُمُ)
+    const misl=v.b===u.b&&!pv&&!pw&&((!sk&&vm.includes('\u0651')&&(cross||u.b!=='ل'))||(sk&&/[\u064E-\u0650\u0656\u0657]/.test(vm)&&u.b!=='م'&&(cross||u.b!=='ل')));
+    if(misl) set(v,14);
+    if(!vm.includes('\u0651')||sk) continue;                                     // idğâm-ı misleyn
+    else if(!cross&&u.b==='ل'&&!pv&&j>0&&U[j-1].b==='ل'&&v.b!=='ه') set(u,2);      // لِلنَّاسِ: okunmayan lâm
+  }
+  return out||chars;
 }
 // verideki küçük tutarsızlık: munfasıl harfinden önceki hareke 'muttasıl' kodlu (كَفَرُوٓا ، أَنصَارِىٓ) → aynı uzatma, munfasıl
 function arMeddFix(chars){
@@ -1101,7 +1131,7 @@ function okAyah(i){
     const k=plain?null:clsOf(c); if(!k){ prevLab=null; h+=esc(t); continue }
     let lab=edu&&OKLAB[p];
     const dup=!!lab&&prevLab!=null&&(prevLab&31)===p; if(dup) lab=false; else prevLab=lab?c:null;
-    const g=(!lab&&!dup&&[9,10,11,12,14,15].includes(p))?' gn':'';
+    const g=(!lab&&!dup&&([9,10,11,12,15].includes(p)||(p===14&&/^[mn]+$/i.test(t))))?' gn':'';
     h+= lab ? '<span class="rb"><span class="'+k[0]+g+'" data-r="'+k[1]+'">'+esc(t)+'</span><span class="rl">'+lab+'</span></span>'
             : '<span class="'+k[0]+g+'" data-r="'+k[1]+'">'+esc(t)+'</span>';
   }
