@@ -571,7 +571,19 @@ return function(flat,surah,ayah){
   // huruf-i mukattaa
   const w0=words[0]; if(w0){const sk=w0.map(i=>U[i].b).join('').replace(/[^ء-ي]/g,'');
     const noV=w0.every(i=>!(U[i].f||U[i].k||U[i].d||U[i].tn||U[i].sk));
-    if(MUQ[sk]&&noV){push(MUQ[sk],7,{v:'l'}); w0.forEach(i=>U[i].done=true); firstPron=false}}
+    if(MUQ[sk]&&noV){
+      // harf adları: ط ح ه ي ر 2 hareke (tabiî), ل م ص ك س ق ن 6 hareke (lâzım), ع lîn, elif uzatılmaz
+      const ML={'ا':[['elif',0]],'ل':[['l',0],['â',7],['m',0]],'م':[['m',0],['î',7],['m',0]],'ص':[['s',32],['â',39],['d',32]],'ر':[['r',32],['â',36]],'ك':[['k',0],['â',7],['f',0]],'ه':[['h',0],['â',4]],'ي':[['y',0],['â',4]],'ع':[['ay',0],['n',0]],'ط':[['t',32],['â',36]],'س':[['s',0],['î',7],['n',0]],'ح':[['h',0],['â',4]],'ق':[['k',32],['â',39],['f',32]],'ن':[['n',0],['û',7],['n',0]]};
+      const IHF='تثجدذزسشصضطظفقك';
+      const seq=[...sk].map(ch=>ML[ch].map(x=>x.slice()));
+      for(let k=0;k+1<seq.length;k++){ const L=seq[k][seq[k].length-1], N=seq[k+1][0], lc=L[0].slice(-1), nb=[...sk][k+1];
+        if(lc==='m'&&N[0]==='m'){ L[1]=9; N[1]=9 }                                   // lââm-mîm: idğâm-ı misleyn, ğunne
+        else if(lc==='n'&&N[0]==='m'){ L[0]=L[0].slice(0,-1)+'m'; L[1]=12; N[1]=12 }  // Tâ sîm mîm: idğâm
+        else if(lc==='n'&&IHF.includes(nb)){ L[1]=10 } }                               // ayn sâd, ayn sîn, sîn kâf: ihfâ
+      const nw=words[1]&&U[words[1][0]], LL=seq[seq.length-1], LT=LL[LL.length-1];
+      if(nw&&LT[0].slice(-1)==='n'&&IHF.includes(nw.b)) LT[1]=10;                      // Tâ sîn tilke: ihfâ
+      seq.forEach((g,k)=>{ if(k) push(' ',0,{sp:true}); g.forEach(([t,c])=>push(t,c,'âîû'.includes(t)?{v:'l'}:{})) });
+      w0.forEach(i=>{ if(!WAQF.includes(U[i].b)) U[i].done=true }); firstPron=false }}
 
   for(let i=0;i<U.length;i++){
     const u=U[i]; if(u.done) continue; const b=u.b; if(wordOf[i]>=0) curW=wordOf[i];
